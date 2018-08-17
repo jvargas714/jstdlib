@@ -17,21 +17,30 @@
  */
 
 namespace jstd {
+    std::thread recv_thread;
+    std::thread q_proc_thread;
+
+    template<typename QItem>
     class UdpServer {
         // create a hash from ip str and and port
         std::unordered_map<size_t, NetConnection> client_connections;
+        NetConnection svr_conn;
     public:
         UdpServer();
-        UdpServer(const std::string &ip, const int port);
+
+        UdpServer(const std::string &ip, const in_port_t& port);
 
         // adds udpclient to connection map
         bool addClient(const std::string, const int port);
 
         // virtual method to process a generic buffer
-        virtual bool processMsg(uint8_t* buff);
+        virtual bool processMsg(const QItem& item);
 
         // broadcast message to all active clients, returns number of clients succesfully sent out to
         virtual int broadcastMsg();
+
+        // recvs msg and queues item for processing (thread)
+        void msg_recving();
     };
 }
 #endif

@@ -18,7 +18,15 @@
 
 #define INVALID_SOCKET -1
 
-std::string SockErrToString(uint32_t type) {
+// fatal error exit codes
+enum FATAL_ERR {
+    SOCK_FAIL = -10,
+    IP_INET_FAIL,
+    SOCK_BIND_FAIL
+};
+
+#ifdef LINUX_OS
+std::string sockErrToString(uint32_t type) {
     switch (type) {
         case EACCES:
             return "Permission to create socket of the specified type is denied";
@@ -39,17 +47,20 @@ std::string SockErrToString(uint32_t type) {
             return "Error type unknown";
     }
 }
+#else // macosx
+std::string sockErrToString(uint32_t type) {
+    return "NEEDS IMPLEMENTATION";
+}
+#endif
 
 namespace jstd {
     // defaults type to UDP
     struct NetConnection {
-        uint32_t port;
         std::string ipAddr;
         sockaddr_in sa;
-        __socket_type sock_type;
+        uint32_t sock_type;
         int sockfd;
-        NetConnection() : port(DEFAULT_UDP_SERVER_PORT),
-                          ipAddr("127.0.0.1"),
+        NetConnection() : ipAddr("127.0.0.1"),
                           sa({0}),
                           sock_type(SOCK_DGRAM),
                           sockfd(INVALID_SOCKET) {}

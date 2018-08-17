@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
     socklen_t addrLen = sizeof(sockaddr_in);
     sendAddr.sin_family = AF_INET;
     sendAddr.sin_port = (uint16_t)std::strtol(argv[2], nullptr, 10);
+    std::cout << "sending to port: " << sendAddr.sin_port << std::endl;
     if(!inet_aton(argv[1], &sendAddr.sin_addr)) {
         std::cout << "invalid ip addr: " << argv[1] << " provided, aborting :(" << std::endl;
         std::cout << "errno: " << errno << std::endl;
