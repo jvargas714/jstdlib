@@ -64,43 +64,45 @@ std::string sockErrToString(int32_t type) {
 
     // defaults type to UDP
     struct NetConnection {
-        std::string ipAddr;
+        std::string ip_addr;
         sockaddr_in sa;
         uint32_t sock_type;
         int sockfd;
-        NetConnection() : ipAddr("127.0.0.1"),
+        socklen_t addr_len;
+        NetConnection() : ip_addr("127.0.0.1"),
                           sa({0}),
                           sock_type(SOCK_DGRAM),
-                          sockfd(INVALID_SOCKET) {}
+                          sockfd(INVALID_SOCKET),
+                          addr_len(sizeof(sockaddr_in)) {}
         NetConnection(const NetConnection& conn) :
-                            ipAddr(conn.ipAddr),
+                            ip_addr(conn.ip_addr),
                             sa(conn.sa),
                             sock_type(conn.sock_type),
-                            sockfd(conn.sockfd) {}
+                            sockfd(conn.sockfd),
+                            addr_len(sizeof(sockaddr_in)) {}
     };
 
     // std item to hold a buffer
+    // contains socket information for easy usage
+    // id :: identifies type of message being sent out || or hash_id
+    // serialize() :: converts entire data structure to a buffer, reciever of this item should be able to
+    //                reconstruct the message. Note serialize does not serialize NetConnection
     struct NetItem {
         NetConnection conn;
         std::vector<uint8_t> buff;
-        size_t id;
 
-        NetItem(): conn(), id{0}{}
-
-        NetItem(const NetItem& conn) : conn{conn.conn} {
-            id = conn.id;
-            buff = conn.buff;
-        }
-
+        NetItem()=default;
+        NetItem(const NetItem& conn) : conn{conn.conn} { buff = conn.buff; }
         ~NetItem()=default;
 
-        inline std::vector<uint8_t> serialize() {
+        inline std::vector<uint8_t>& serialize() {
             return buff;
         }
 
+        size_t get_buff_len() const { return buff.size(); }
+
         std::ostream& operator << (std::ostream& os) {
-            os << "id: " << id;
-            os << "ip: " << conn.ipAddr;
+            os << "ip: " << conn.ip_addr;
             os << "port: " << conn.sa.sin_port;
             os << "buff size: " << buff.size();
             return os;

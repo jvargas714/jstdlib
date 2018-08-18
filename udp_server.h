@@ -41,6 +41,7 @@ namespace jstd {
         std::mutex m_qmtx;
         std::mutex m_cmtx;
 #endif
+        // listening socket
         NetConnection m_svr_conn;
 
     protected:
@@ -55,7 +56,7 @@ namespace jstd {
         bool add_client(const std::string& ip, const uint16_t& port);
         void add_client(const NetConnection& conn);
 
-        auto lookup_client(const uint64_t& hash_id);
+        auto lookup_client(const uint64_t& hash_id, bool& found);
 
         // virtual method to process a QItem, hash_id of connection for response lookup
         virtual bool process_item(const QItem& item);
@@ -64,14 +65,15 @@ namespace jstd {
         // broadcast message to all active clients, returns number of clients succesfully sent out to
         virtual int broad_cast_data(const std::vector<uint8_t>& data);
 
-        // set recv operation to non-blocking operation
-        bool set_nonblocking();
+        // set recvfrom operation to non-blocking operation
+        bool set_nonblocking(bool isblocking);
 
         // clear client map
         int clear_clients();
 
-        // sends generic message to client with hash_id
-        bool send_msg();
+        // sends generic network message to client with hash_id
+        bool send_item(const QItem& item, size_t hash_id);
+        bool send_item(const QItem& item);
 
 #ifdef MULTITHREADED_SRVR
         // recvs msg and queues item for processing (thread)

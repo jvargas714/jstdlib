@@ -3,6 +3,23 @@ project(jstdLib)
 
 set(MULTITHREADED ON)
 set(CMAKE_CXX_STANDARD 14)
+
+# system OS identification
+if (UNIX)
+    if(APPLE)
+        message("building targets for MAC OS X")
+        add_definitions(-DOSX)
+    endif()
+    message("building targets for Linux System")
+    add_definitions(-DLINUX)
+
+elseif(WIN32)
+    message("building targets for Windows")
+    add_definitions(-DWIN)
+else()
+    message("building target for unknown system")
+endif()
+
 set(LIB_FILES
         udp_server.cpp
         udp_server.h
