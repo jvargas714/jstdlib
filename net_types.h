@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <ostream>
+#include <sstream>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -16,10 +17,18 @@
 // increment tcp ports by 2
 #define DEFAULT_TCP_SERVER_PORT 5002
 
+// maximum buff size
+#define MAX_BUFF_SIZE 2048
+
 // localhost
 #define LOCALHOSTIP "127.0.0.1"
 
+// err codes
 #define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
+
+// server operating parameters
+#define DEFAULT_SVR_THREAD_SLEEP 50 // in ms
 
 // fatal error exit codes
 enum FATAL_ERR {
@@ -61,6 +70,37 @@ std::string sockErrToString(int32_t type) {
     return "NEEDS IMPLEMENTATION";
 }
 #endif
+
+    struct ServerStats {
+        ServerStats(): msg_recvd_cnt(0),
+            msg_processed_cnt(0),
+            sock_err_cnt(0),
+            clients_added_cnt(0),
+            clients_removed_cnt(0) {}
+
+        uint64_t msg_recvd_cnt;
+        uint64_t msg_processed_cnt;
+        uint64_t sock_err_cnt;
+        uint64_t clients_added_cnt;
+        uint64_t clients_removed_cnt;
+
+        std::ostream& operator << (std::ostream& os) {
+            os << to_string();
+            return os;
+        }
+
+        std::string to_string() const {
+            std::stringstream ss;
+            ss << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=Server Statistics-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n";
+            ss << "\tMessages Received: " << msg_recvd_cnt << "\n";
+            ss << "\tMessages Processed: " << msg_processed_cnt << "\n";
+            ss << "\tClients Added: " << clients_added_cnt << "\n";
+            ss << "\tClients Removed: " << clients_removed_cnt << "\n";
+            ss << "\tSocket Errors: " << sock_err_cnt << "\n";
+            ss << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n";
+            return ss.str();
+        }
+    };
 
     // defaults type to UDP
     struct NetConnection {

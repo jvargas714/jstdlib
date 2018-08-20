@@ -6,6 +6,20 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <iomanip>
+
+static void set_nonblocking(int sockfd, bool nonblocking) {
+    if (nonblocking) {
+        fcntl(sockfd, F_SETFL, O_NONBLOCK);
+    } else {
+        if (fcntl(sockfd, F_GETFL) & O_NONBLOCK) {
+            fcntl(sockfd, F_SETFL,
+                  fcntl(sockfd, F_GETFL) ^ O_NONBLOCK
+            );
+        }
+    }
+}
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -41,8 +55,11 @@ int main(int argc, char** argv) {
     std::memset(buff, 0, sizeof(buff));
     std::cout << "Server with ipaddr: " << argv[1] << " listening on port " << port << std::endl;
 
+    // set sockfd discriptor properties
+    set_nonblocking(sockfd, false);
+
     // listen blocking, can recv from anyone
-    int64_t len = recvfrom(sockfd, buff, 1024, 0, (struct sockaddr*)&fromAddr, &addrLen);
+    int64_t len = recvfrom(sockfd, buff, 1024, 0, (struct sockaddr *) &fromAddr, &addrLen);
     if (len == -1) {
         std::cout << "there was an error receiving udp packets" << std::endl;
         std::cout << "errno: " << errno << std::endl;
@@ -53,6 +70,7 @@ int main(int argc, char** argv) {
         std::string tmp(buff);
         std::cout << "DATA RECVD: " << tmp << std::endl;
         std::cout << "DATA RECVD BUFF: " << buff << std::endl;
+        std::cout << "from: " << inet_ntoa(fromAddr.sin_addr) << ":" << fromAddr.sin_port << std::endl;
     }
     return 0;
 }
