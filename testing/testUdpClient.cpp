@@ -6,7 +6,9 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+/*
+ * test app to test sockets on unix systems
+ */
 int main(int argc, char** argv) {
     if (argc != 3) {
         std::cout << "\n\nUsage: " << argv[0] << " ipaddr port\n\n" << std::endl;

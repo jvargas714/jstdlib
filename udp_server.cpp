@@ -356,8 +356,8 @@ void UdpServer<QItem>::msg_recving() {
             _build_qitem(item, buff, num_bytes, from_addr);
             LOG_INFO(USVR, "recvd ", num_bytes, " bytes from ", item.ip_addr, ":", item.sa.sin_port);
             add_client(item.conn);
-            m_stats.msg_recvd_cnt++;
             push_qitem(item);
+            m_stats.msg_recvd_cnt++;
             std::memset(buff, 0, MAX_BUFF_SIZE);
         }
     }
@@ -385,8 +385,8 @@ bool jstd::UdpServer<QItem>::run() {
     LOG_DEBUG(USVR, "starting message receiving and item processing thread");
     m_qproc_active = true;
     m_recv_active = true;
-    g_recv_thread = std::thread(&UdpServer::msg_recving, this);
-    q_proc_thread = std::thread(&UdpServer::msg_processing, this);
+    m_recv_thread = std::thread(&UdpServer::msg_recving, this);
+    m_q_proc_thread = std::thread(&UdpServer::msg_processing, this);
 }
 
 template<typename QItem>
@@ -394,5 +394,14 @@ void jstd::UdpServer<QItem>::push_qitem(const QItem &item) {
     LOG_TRACE(USVR);
     LOCK_GUARD_ITEM_QUEUE;
     m_msg_queue.push(item);
+}
+
+template<typename QItem>
+void jstd::UdpServer<QItem>::join_threads() {
+    LOG_TRACE(USVR);
+    LOG_DEBUG(USVR, "UDP server is now blocking, until app termination");
+    m_recv_thread.join();
+    m_q_proc_thread.join();
+    LOG_DEBUG(USVR, "UDP server theads have exited");
 }
 #endif    // THREADED REGION OF SOURCE

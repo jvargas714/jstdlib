@@ -9,6 +9,9 @@
 #include <fcntl.h>
 #include <iomanip>
 
+/*
+ * test app to test sockets on unix systems
+ */
 static void set_nonblocking(int sockfd, bool nonblocking) {
     if (nonblocking) {
         fcntl(sockfd, F_SETFL, O_NONBLOCK);

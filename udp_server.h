@@ -30,12 +30,11 @@
  *
  * make server multi-threaded with queue feeding and a processing thread
  */
-class UdpServer;
 
 namespace jstd {
 #ifdef MULTITHREADED_SRVR
-    std::thread g_recv_thread;
-    std::thread q_proc_thread;
+//    std::thread g_recv_thread;
+//    std::thread q_proc_thread;
 #endif
 
     template<typename QItem>
@@ -44,6 +43,8 @@ namespace jstd {
         std::unordered_map<uint64_t, NetConnection> m_client_connections;
 
 #ifdef MULTITHREADED_SRVR
+        std::thread m_recv_thread;
+        std::thread m_q_proc_thread;
         std::queue<std::vector<QItem>>  m_msg_queue;
         std::mutex m_qmtx;
         std::mutex m_cmtx;
@@ -106,9 +107,11 @@ namespace jstd {
 
         // run threads
         bool run();
+
+        // make server run call blocking
+        void join_threads();
 #endif
     private:
-        // _build_qitem(item, buff, num_bytes, from_addr);
         virtual void _build_qitem(QItem& item, const uint8_t* buff, const ssize_t& len, const sockaddr_in& addr) const;
         virtual uint64_t hash_conn(const NetConnection& conn) const;
         virtual uint64_t hash_conn(const std::string& ipaddr, const int& port) const;

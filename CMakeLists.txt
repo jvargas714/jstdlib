@@ -29,7 +29,11 @@ if (MULTITHREADED)
     add_definitions(-DMULTITHREADED_SRVR)
 endif()
 
-add_library(jstdLib SHARED ${LIB_FILES})
-add_executable(testUdpServer testUdpServer.cpp)
-add_executable(testUdpClient testUdpClient.cpp)
+add_library(jstdlib SHARED ${LIB_FILES})
 
+# test executables
+add_executable(testUdpServer testing/testUdpServer.cpp)
+add_executable(testUdpClient testing/testUdpClient.cpp)
+add_executable(testUdpServerApp testing/testUdpServerApp.cpp)
+target_include_directories(testUdpServerApp PUBLIC ./)
+target_link_libraries(testUdpServerApp jstdlib)
