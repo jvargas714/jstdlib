@@ -32,11 +32,6 @@
  */
 
 namespace jstd {
-#ifdef MULTITHREADED_SRVR
-//    std::thread g_recv_thread;
-//    std::thread q_proc_thread;
-#endif
-
     template<typename QItem>
     class UdpServer {
         // create a hash from ip str and and port
@@ -74,9 +69,9 @@ namespace jstd {
         auto lookup_client(const uint64_t& hash_id, bool& found);
 
         // virtual method to process a QItem, hash_id of connection for response lookup
-        virtual bool process_item(const QItem& item);
+        virtual bool process_item(QItem& item);
         virtual bool process_item(QItem&& item);
-        virtual bool process_item(const QItem& item, uint64_t hash_id);
+        virtual bool process_item(QItem&& item, uint64_t hash_id);
 
         // broadcast message to all active clients, returns number of clients succesfully sent out to
         virtual int broadcast_data(const std::vector<uint8_t>& data);
@@ -95,8 +90,8 @@ namespace jstd {
         bool remove_client(const std::string& ipaddr, const int& port);
 
         // sends generic network message to client with hash_id
-        bool send_item(const QItem& item, uint64_t hash_id);
         bool send_item(const QItem& item);
+        bool send_item(const QItem& item, uint64_t hash_id);
 
 #ifdef MULTITHREADED_SRVR
         // recvs msg and queues item for processing (thread)

@@ -3,6 +3,7 @@ project(jstdLib)
 
 set(MULTITHREADED ON)
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # system OS identification
 if (UNIX)
@@ -26,14 +27,26 @@ set(LIB_FILES
         net_types.h)
 
 if (MULTITHREADED)
+    find_package(Threads REQUIRED)
+    message("building target with multithreaded support")
     add_definitions(-DMULTITHREADED_SRVR)
 endif()
 
 add_library(jstdlib SHARED ${LIB_FILES})
+set_target_properties(jstdlib PROPERTIES LINKER_LANGUAGE CXX)
 
 # test executables
 add_executable(testUdpServer testing/testUdpServer.cpp)
 add_executable(testUdpClient testing/testUdpClient.cpp)
+
 add_executable(testUdpServerApp testing/testUdpServerApp.cpp)
 target_include_directories(testUdpServerApp PUBLIC ./)
-target_link_libraries(testUdpServerApp jstdlib)
+link_directories(./)
+if (MULTITHREADED)
+    target_link_libraries(testUdpServerApp jstdlib Threads::Threads)
+else()
+    target_link_libraries(testUdpServerApp jstdlib)
+endif()
+
+add_executable(scrap testing/scrap.cpp)
+target_include_directories(scrap PUBLIC ./)

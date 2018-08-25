@@ -1,6 +1,5 @@
 #include "logger.h"
 #include "udp_server.h"
-#include "net_types.h"
 #include <iostream>
 
 std::string g_ipaddr;
@@ -13,7 +12,7 @@ void handle_args(int argc, char** argv) {
         g_ipaddr = LOCALHOSTIP;
     } else {
         g_ipaddr = std::string(argv[1]);
-        g_port = static_cast<int>(std::strtol(argv[2], nullptr, 10));
+        g_port = static_cast<uint16_t >(std::strtol(argv[2], nullptr, 10));
     }
 }
 

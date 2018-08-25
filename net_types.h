@@ -109,6 +109,7 @@ std::string sockErrToString(int32_t type) {
         uint32_t sock_type;
         int sockfd;
         socklen_t addr_len;
+        NetConnection& operator = (const NetConnection& conn) = default;
         NetConnection() : ip_addr("127.0.0.1"),
                           sa({0}),
                           sock_type(SOCK_DGRAM),
@@ -135,7 +136,7 @@ std::string sockErrToString(int32_t type) {
         NetItem(const NetItem& conn) : conn{conn.conn} { buff = conn.buff; }
         ~NetItem()=default;
 
-        inline std::vector<uint8_t>& serialize() {
+        inline std::vector<uint8_t> serialize() const {
             return buff;
         }
 
