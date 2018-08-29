@@ -3,7 +3,7 @@ project(jstdLib)
 
 set(MULTITHREADED ON)
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 # system OS identification
 if (UNIX)
@@ -22,7 +22,8 @@ else()
 endif()
 
 set(LIB_FILES
-        udp_server.cpp
+        jstd_util.h
+        jstd_util.cpp
         udp_server.h
         net_types.h)
 

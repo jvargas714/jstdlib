@@ -84,11 +84,6 @@ std::string sockErrToString(int32_t type) {
         uint64_t clients_added_cnt;
         uint64_t clients_removed_cnt;
 
-        std::ostream& operator << (std::ostream& os) {
-            os << to_string();
-            return os;
-        }
-
         std::string to_string() const {
             std::stringstream ss;
             ss << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=Server Statistics-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n";
@@ -101,6 +96,11 @@ std::string sockErrToString(int32_t type) {
             return ss.str();
         }
     };
+
+    std::ostream& operator << (std::ostream& os, const ServerStats& stats) {
+        os << stats.to_string();
+        return os;
+    }
 
     // defaults type to UDP
     struct NetConnection {
@@ -142,12 +142,17 @@ std::string sockErrToString(int32_t type) {
 
         size_t get_buff_len() const { return buff.size(); }
 
-        std::ostream& operator << (std::ostream& os) {
-            os << "ip: " << conn.ip_addr;
-            os << "port: " << conn.sa.sin_port;
-            os << "buff size: " << buff.size();
-            return os;
+        std::string to_string() const {
+            std::stringstream ss;
+            ss << "ip: " << conn.ip_addr;
+            ss << "port: " << conn.sa.sin_port;
+            ss << "buff size: " << buff.size();
+            return ss.str();
         }
     };
+    std::ostream& operator << (std::ostream& os, const NetItem& ni) {
+        os << ni.to_string();
+        return os;
+    }
 } // end jstd
 #endif //JSTDLIB_NET_TYPES_H

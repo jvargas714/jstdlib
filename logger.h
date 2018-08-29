@@ -21,7 +21,8 @@
 
 // FORMAT  ::>>>  [Thu Aug  2 20:28:31 2018] <GSVR> ::TRACE:: classNamespace::functionName(): this is an example log entry
 
-std::thread g_QProcThread;
+// todo :: create implementaiton file to hide globals
+ std::thread g_QProcThread;
 
 void Q_Proc_Thread();
 
@@ -31,7 +32,7 @@ void Q_Proc_Thread();
 #define COUT    std::cout
 #define CERR    std::cerr
 
-#define LOG_DIR std::string ("./log/current")
+#define LOG_DIR std::string ("log")
 #define BACKUP_LOG_DIR std::string ("./log/backups")
 
 enum class LOG_MODULE {
@@ -51,15 +52,15 @@ enum LOG_LEVEL {
     WARNING,
     ERROR
 };
-
+// mdl, lvl, funct, ss.str()
 struct S_LOG_ITEM {
     LOG_MODULE mdl;
     LOG_LEVEL lvl;
     std::string msg;
     std::string funct;
     S_LOG_ITEM() : mdl(LOG_MODULE::GENERAL), lvl(LOG_LEVEL::TRACE), msg(), funct("") { }
-    S_LOG_ITEM(LOG_MODULE mdl, LOG_LEVEL lvl, const std::string&& fn, const std::string&& msg) : mdl(mdl), lvl(lvl), msg(std::move(msg)), funct(std::move(fn)) { }
-    S_LOG_ITEM(LOG_MODULE mdl, LOG_LEVEL lvl, const std::string&& msg) : mdl(mdl), lvl(lvl), msg(std::move(msg)), funct("") { }
+    S_LOG_ITEM(LOG_MODULE mdl, LOG_LEVEL lvl, std::string fn, std::string msg) : mdl(mdl), lvl(lvl), msg(std::move(msg)), funct(std::move(fn)) { }
+    S_LOG_ITEM(LOG_MODULE mdl, LOG_LEVEL lvl, std::string msg) : mdl(mdl), lvl(lvl), msg(std::move(msg)), funct("") { }
 };
 
 const std::string log_module(LOG_MODULE mld);
@@ -75,8 +76,11 @@ public:
     static logger& get_instance(const std::string& filename="");
 
     ~logger() {
-        if (logger::log_proc_is_alive) log_proc_is_alive = false;
+        if (logger::log_proc_is_alive) {
+            stopLogging();
+        }
         if (logger::instCreated) delete lg;
+        instCreated = false;
     };
 
     void flush_log(bool new_line = false);
@@ -85,7 +89,7 @@ public:
 
     inline void set_std_out(bool stdout_on) { output_stdout = stdout_on; }
 
-    inline void stopLogging() { logger::log_proc_is_alive = false; }
+    inline void stopLogging() { logger::log_proc_is_alive = false; g_QProcThread.join(); }
 
     inline bool isFileOpen() { return (strm_uptr) ? strm_uptr->is_open():false; }
 
@@ -105,13 +109,15 @@ public:
 private:
     logger();
 
-    explicit logger(const std::string& filename, bool log_to_stdout=true);
+    explicit logger(std::string filename, bool log_to_stdout=true);
 
     template<typename ToLog, typename...Args>
     void build_stream(std::stringstream& ss, const ToLog& data, Args...args);
 
     template<typename ToLog>
     void build_stream(std::stringstream& ss, const ToLog& data);
+
+    void setup_logging();
 
     // data
     std::string log_filename;
@@ -175,27 +181,23 @@ logger::logger() :
         current_module(DEFAULT_MODULE),
         output_stdout(true),
         mtx() {
-    mkdir(LOG_DIR.c_str(), DEFFILEMODE);
-    strm_uptr = std::make_unique<std::ofstream>(LOG_DIR + log_filename, std::ios::app);
-    COUT << "logger with default filname: " << log_filename << " has been created" << END;
+    setup_logging();
 }
 
-logger::logger(const std::string &filename, bool log_to_stdout) :
-        log_filename(filename),
+logger::logger(std::string filename, bool log_to_stdout) :
+        log_filename(std::move(filename)),
         current_level(DEFAULT_LOG_LEVEL),
         current_module(DEFAULT_MODULE),
         output_stdout(log_to_stdout),
         mtx() {
-    mkdir(LOG_DIR.c_str(), DEFFILEMODE);
-    strm_uptr = std::make_unique<std::ofstream>(LOG_DIR + log_filename, std::ios::app);
-    COUT << "logger with filename: " << log_filename << " has been created" << END;
+    setup_logging();
 }
 
 logger& logger::get_instance(const std::string& filename) {
     if (!logger::instCreated) {
-        lg = new logger( (!filename.empty()) ?
-                LOG_DIR + "/" + filename :
-                LOG_DIR + "/" + gen_def_filename() );
+        lg = new logger((!filename.empty()) ?
+                              LOG_DIR + "/" + filename :
+                              LOG_DIR + "/" + gen_def_filename());
         logger::instCreated = true;
         logger::log_proc_is_alive = true;
         Q_Proc_Thread();
@@ -226,8 +228,6 @@ void logger::log_processing() {
     while ( logger::log_proc_is_alive ||  !log_items.empty() ) {
         std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_MILLI_SLEEP));
         if (!log_items.empty()) {
-            std::cout << "found item to log in queue...." << std::endl;
-
             mtx.lock();
             S_LOG_ITEM item = log_items.front();
             log_items.pop();
@@ -262,7 +262,6 @@ bool logger::set_log_file(const std::string& filename) {
 // non recurse const ref version
 template<typename ToLog>
 void logger::log(LOG_MODULE mdl, LOG_LEVEL lvl, const std::string& funct, const ToLog& msg) {
-    std::cout << __FUNCTION__ << "ref :: logging an item!!" << std::endl;
     std::stringstream ss;
     ss << msg;
     LOCK_GUARD;
@@ -286,6 +285,19 @@ void logger::build_stream(std::stringstream& ss, const ToLog& data, Args...args)
 template<typename ToLog>
 void logger::build_stream(std::stringstream& ss, const ToLog& data) {
     ss << data << " ";
+}
+
+void logger::setup_logging() {
+    if (mkdir(LOG_DIR.c_str(), DEFFILEMODE) == -1) {
+        CERR << FN << "there was an error creating logging directory errno: " << errno << END;
+        output_stdout = true;
+    }
+    strm_uptr = std::make_unique<std::ofstream>(LOG_DIR + log_filename, std::ios::app);
+    if (!strm_uptr->is_open()) {
+        CERR << FN << "log file is not open for logging, logging to stdout instead" << END;
+        output_stdout = true;
+    } else
+        COUT << FN << "logger with filename: " << log_filename << " has been created" << END;
 }
 
 void Q_Proc_Thread() {
