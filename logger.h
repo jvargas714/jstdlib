@@ -16,7 +16,7 @@
 #include <ctime>
 #include <sys/stat.h>
 
-#define THREAD_MILLI_SLEEP 100
+constexpr int THREAD_MILLI_SLEEP = 100;
 #define LOCK_GUARD std::lock_guard<std::mutex> lock(mtx)
 
 // FORMAT  ::>>>  [Thu Aug  2 20:28:31 2018] <GSVR> ::TRACE:: classNamespace::functionName(): this is an example log entry
@@ -32,8 +32,9 @@ void Q_Proc_Thread();
 #define COUT    std::cout
 #define CERR    std::cerr
 
-#define LOG_DIR std::string ("log")
-#define BACKUP_LOG_DIR std::string ("./log/backups")
+//#define LOG_DIR std::string ("log")
+constexpr char LOG_DIR[] = "log";
+constexpr char BACKUP_LOG_DIR[] = "./log/backups";
 
 enum class LOG_MODULE {
     POKER_GAME,
@@ -42,7 +43,8 @@ enum class LOG_MODULE {
     GAME_SERVER_CLIENT,
     GENERAL,
     TEXASHOLDEM,
-    UDPSERVER
+    UDPSERVER,
+    TCPSERVER
 };
 
 enum LOG_LEVEL {
@@ -171,7 +173,8 @@ const std::string log_module(LOG_MODULE mld) {
         case LOG_MODULE::TEST:                return "<TEST>";
         case LOG_MODULE::GENERAL:             return "<GEN>";
         case LOG_MODULE::TEXASHOLDEM:         return "<TXHDM>";
-        case LOG_MODULE::UDPSERVER:              return "<USVR>";
+        case LOG_MODULE::UDPSERVER:           return "<USVR>";
+        case LOG_MODULE::TCPSERVER:           return "<TSVR>";
     }
 }
 

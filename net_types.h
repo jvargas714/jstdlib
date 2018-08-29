@@ -12,26 +12,26 @@
 
 
 // increment udp ports by 5
-#define DEFAULT_UDP_SERVER_PORT 5005
+constexpr in_port_t DEFAULT_UDP_SERVER_PORT = 5005;
 
 // increment tcp ports by 2
-#define DEFAULT_TCP_SERVER_PORT 5002
+constexpr in_port_t DEFAULT_TCP_SERVER_PORT = 5002;
 
 // maximum buff size
-#define MAX_BUFF_SIZE 2048
+constexpr int MAX_BUFF_SIZE = 2048;
 
 // localhost
-#define LOCALHOSTIP "127.0.0.1"
+constexpr char LOCALHOSTIP[] = "127.0.0.1";
 
 // err codes
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
+constexpr int  INVALID_SOCKET = -1;
+constexpr int SOCKET_ERROR = -1;
 
 // server operating parameters
-#define DEFAULT_SVR_THREAD_SLEEP 50 // in ms
+constexpr int DEFAULT_SVR_THREAD_SLEEP = 50; // in ms
 
 // fatal error exit codes
-enum FATAL_ERR {
+enum class FATAL_ERR {
     SOCK_FAIL = -10,
     IP_INET_FAIL,
     SOCK_BIND_FAIL
@@ -127,7 +127,7 @@ std::string sockErrToString(int32_t type) {
     // contains socket information for easy usage
     // id :: identifies type of message being sent out || or hash_id
     // serialize() :: converts entire data structure to a buffer, reciever of this item should be able to
-    //                reconstruct the message. Note serialize does not serialize NetConnection
+    //                reconstruct the data structure. Note serialize does not serialize NetConnection
     struct NetItem {
         NetConnection conn;
         std::vector<uint8_t> buff;

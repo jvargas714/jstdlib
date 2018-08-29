@@ -25,7 +25,8 @@ set(LIB_FILES
         jstd_util.h
         jstd_util.cpp
         udp_server.h
-        net_types.h)
+        net_types.h
+        tcp_server.h)
 
 if (MULTITHREADED)
     find_package(Threads REQUIRED)
