@@ -37,7 +37,7 @@ endif()
 add_library(jstdlib SHARED ${LIB_FILES})
 set_target_properties(jstdlib PROPERTIES LINKER_LANGUAGE CXX)
 
-# test executables
+# -------------------- test executables -------------------------------------
 add_executable(testUdpServer testing/testUdpServer.cpp)
 add_executable(testUdpClient testing/testUdpClient.cpp)
 
@@ -46,9 +46,13 @@ target_include_directories(testUdpServerApp PUBLIC ./)
 link_directories(./)
 if (MULTITHREADED)
     target_link_libraries(testUdpServerApp jstdlib Threads::Threads)
-else()
+else( )
     target_link_libraries(testUdpServerApp jstdlib)
-endif()
+endif( )
+
+add_executable(testTcpServerApp testing/testTcpServerApp.cpp)
+target_include_directories(testTcpServerApp PUBLIC ./)
+target_link_libraries(testTcpServerApp jstdlib Threads::Threads)
 
 add_executable(scrap testing/scrap.cpp)
 target_include_directories(scrap PUBLIC ./)

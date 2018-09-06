@@ -1,17 +1,10 @@
-//
-// Created by JAY VARGAS on 8/28/18.
-//
-
 #ifndef JSTDLIB_TCP_SERVER_H
 #define JSTDLIB_TCP_SERVER_H
+#include <stdlib.h>
 #include <cstdint>
 #include <iostream>
-
-#ifdef MULTITHREADED_SRVR
 #include <mutex>
 #include <thread>
-#endif
-
 #include <unordered_map>
 #include <queue>
 #include <chrono>
@@ -22,6 +15,9 @@
 #include <string>       // std::to_string
 #include <fcntl.h>      // fcntl()
 #include "jstd_util.h"
+#include <sys/filio.h>
+#include <sys/ioctl.h>  // ioctl()
+#include <unistd.h>     // close()
 #include "net_types.h"
 
 /*
@@ -44,6 +40,8 @@
  *      std::vector<uint8_t> serialize();  // serialize converts data structure to bin format
  *  };
 
+ ISSUES:
+ todo :: having issues with the timeout value set to other than nullptr
  */
 #define TSVR LOG_MODULE::TCPSERVER
 
@@ -53,7 +51,6 @@ namespace jstd {
 		// create a hash from ip str and and port
 		std::unordered_map<uint64_t, NetConnection> m_client_connections;
 
-#ifdef MULTITHREADED_SRVR
 		std::thread m_recv_thread;
 		std::thread m_q_proc_thread;
 		std::queue<QItem> m_msg_queue;
@@ -61,8 +58,8 @@ namespace jstd {
 		std::mutex m_cmtx;
 		bool m_qproc_active;
 		bool m_recv_active;
-		bool m_is_nonblocking;
-#endif
+		FdSets m_fd_sets;
+
 		// listening socket
 		NetConnection m_svr_conn;
 
@@ -75,24 +72,25 @@ namespace jstd {
 	public:
 		// ctors
 		TcpServer();
-
 		TcpServer(const std::string &ip, const in_port_t &port);
-
 		~TcpServer();
 
 		// adds udpclient to connection map
+		void add_client(const NetConnection &conn);
 		bool add_client(const std::string &ip, const uint16_t &port);
 
-		void add_client(const NetConnection &conn);
+		// find client by socket descriptor
+		auto lookup_client(const std::string& ipaddr, const in_port_t& port);
+		auto lookup_client(int sockfd);
 
-		auto lookup_client(const uint64_t &hash_id, bool &found);
+		// remove client identified by
+		bool remove_client(const std::string& ipaddr, const in_port_t& port);
+		bool remove_client(const NetConnection& conn);
 
-		// virtual method to process a QItem, hash_id of connection for response lookup
+		// process methods
 		virtual bool process_item(QItem &item);
-
 		virtual bool process_item(QItem &&item);
-
-		virtual bool process_item(QItem &&item, uint64_t hash_id);
+		virtual bool process_select_timeout();
 
 		// broadcast message to all active clients, returns number of clients succesfully sent out to
 		virtual int broadcast_data(const std::vector<uint8_t> &data);
@@ -100,26 +98,20 @@ namespace jstd {
 		// activate or deactivate bcast_mode
 		inline bool set_bcast_mode(bool is_set);
 
-		// set recvfrom operation to non-blocking operation
-		bool set_nonblocking(bool isblocking);
-
-		// check if non-blocking recv or not
-		bool is_nonblocking();
-
 		// clear client map
 		inline void clear_clients();
-
-		bool remove_client(const std::string &ipaddr, const int &port);
 
 		// sends generic network message to client with hash_id
 		bool send_item(const QItem &item);
 
-		bool send_item(const QItem &item, uint64_t hash_id);
+		// send message to connection associated with the socket descriptor
+		bool send_item(const QItem &item, const std::string& ipaddr, const in_port_t& port);
 
 		// sets recv time out for blocking  recvfrom call
 		bool set_recv_timeout(int milli);
 
-#ifdef MULTITHREADED_SRVR
+		// process data from associated connection
+		virtual void on_data(std::vector<uint8_t>&& data, const NetConnection& conn);
 
 		// recvs msg and queues item for processing (thread)
 		void msg_recving();
@@ -136,25 +128,55 @@ namespace jstd {
 		// kill and join threads
 		void kill_threads();
 
-#endif
 	private:
-		virtual void _build_qitem(QItem &item, const uint8_t *buff, const ssize_t &len, const sockaddr_in &addr) const;
-
+		virtual QItem build_qitem(std::vector<uint8_t>&& data, const NetConnection& conn) const;
 		virtual uint64_t hash_conn(const NetConnection &conn) const;
-
 		virtual uint64_t hash_conn(const std::string &ipaddr, const int &port) const;
-
-		inline bool _remove_client(const std::string &ipaddr, const int &port) noexcept {
-			return (m_client_connections.erase(hash_conn(ipaddr, port)) > 0);
-		}
-
+		inline bool _remove_client(const std::string &ipaddr, const int &port) noexcept;
+		bool init_listen_socket();
 		void push_qitem(const QItem &item);
+		int select_active_socket();
+		bool accept_new_connection(int sockfd);
+		void recv_data(int sockfd);
+		virtual void handle_select_error();
 	};
 }
 
 
 
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-Implementation=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+template<typename QItem>
+bool jstd::TcpServer<QItem>::init_listen_socket() {
+	LOG_DEBUG(TSVR, "initializing listener socket");
+	int on;
+	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
+	if (rc < 0) {
+		LOG_ERROR(TSVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
+		return false;
+	}
+	rc = listen(m_svr_conn.sockfd, 100);
+	if (rc < 0) {
+		LOG_ERROR(TSVR, "there was an error listening on socket, exiting errno: ",
+			errno, " descr: ", sockErrToString(errno));
+		return false;
+	}
+	rc = setsockopt(m_svr_conn.sockfd, SOL_SOCKET,  SO_REUSEADDR, (char *)&on, sizeof(on));
+	if (rc < 0) {
+		LOG_ERROR(TSVR, "setting socket options on listening socket failed");
+		close(m_svr_conn.sockfd);
+		return false;
+	}
+	// set socket to non-blocking
+	rc = ioctl(m_svr_conn.sockfd, FIONBIO, (char *)&on);
+	if (rc < 0) {
+		LOG_ERROR(TSVR, "ioctl() failed");
+		close(m_svr_conn.sockfd);
+		return false;
+	}
+	// default TIME OUT
+	set_recv_timeout(DEFAULT_TCP_RECV_TIMEOUT_MILLI);
+	return true;
+}
 
 // default connection settings
 template<typename QItem>
@@ -166,23 +188,18 @@ jstd::TcpServer<QItem>::TcpServer()
 	m_svr_conn.sa.sin_port = DEFAULT_TCP_SERVER_PORT;
 	if (!inet_aton(LOCALHOSTIP, &m_svr_conn.sa.sin_addr)) {
 		LOG_ERROR(TSVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
-		exit(FATAL_ERR::IP_INET_FAIL);
+		std::exit((static_cast<int>(FATAL_ERR::IP_INET_FAIL)));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (m_svr_conn.sockfd < 0) {
 		LOG_ERROR(TSVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
-		exit(FATAL_ERR::SOCK_FAIL);
+		std::exit((static_cast<int>(FATAL_ERR::SOCK_FAIL)));
 	}
-	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
-	if (rc < 0) {
-		LOG_ERROR(TSVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
-		exit(FATAL_ERR::SOCK_BIND_FAIL);
+	if (!init_listen_socket()) {
+		LOG_ERROR(TSVR, "There was an error listening ");
+		std::exit((static_cast<int>(FATAL_ERR::SOCK_LISTEN_FAIL)));
 	}
-#ifdef MULTITHREADED_SRVR
-	m_is_nonblocking = false;
-#endif
-	LOG_INFO(TSVR, "jstd::TcpServer on IP: ", m_svr_conn.ip_addr, " port: ", m_svr_conn.sa.sin_port);
 }
 
 template<typename QItem>
@@ -191,29 +208,23 @@ jstd::TcpServer<QItem>::TcpServer(const std::string &ip, const in_port_t &port)
 	LOG_TRACE(TSVR);
 	m_svr_conn.ip_addr = ip;
 	m_svr_conn.sock_type = SOCK_STREAM;
-	m_svr_conn.sa.sin_port = port;
+	m_svr_conn.sa.sin_port = htons(port);
 	if (inet_aton(m_svr_conn.ip_addr.c_str(), &m_svr_conn.sa.sin_addr) == 0) {
 		LOG_ERROR(TSVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
 		sleep_milli(1000);
-		exit(FATAL_ERR::IP_INET_FAIL);
+		std::exit((static_cast<int>(FATAL_ERR::IP_INET_FAIL)));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_svr_conn.sockfd < 0) {
 		LOG_ERROR(TSVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
 		sleep_milli(1000);
-		exit(FATAL_ERR::SOCK_FAIL);
+		std::exit((static_cast<int>(FATAL_ERR::SOCK_FAIL)));
 	}
-	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
-	if (rc < 0) {
-		LOG_ERROR(TSVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
-		sleep_milli(1000);
-		exit(FATAL_ERR::SOCK_BIND_FAIL);
+	if (!init_listen_socket()) {
+		LOG_ERROR(TSVR, "There was an error listening ");
+		std::exit((static_cast<int>(FATAL_ERR::SOCK_LISTEN_FAIL)));
 	}
-#ifdef MULTITHREADED_SRVR
-	m_is_nonblocking = false;
-#endif
-	LOG_INFO(TSVR, "TcpServer with IP: ", m_svr_conn.ip_addr, " port: ", m_svr_conn.sa.sin_port);
 }
 
 template<typename QItem>
@@ -225,7 +236,8 @@ jstd::TcpServer<QItem>::~TcpServer() {
 
 template<typename QItem>
 uint64_t jstd::TcpServer<QItem>::hash_conn(const NetConnection &conn) const {
-	return hash_conn(conn.ip_addr, conn.sa.sin_port);
+	std::hash<int> hasher;
+	return hasher(conn.sockfd);
 }
 
 template<typename QItem>
@@ -234,17 +246,15 @@ uint64_t jstd::TcpServer<QItem>::hash_conn(const std::string &ipaddr, const int 
 	return hasher(ipaddr + std::to_string(port));
 }
 
-// todo :: subject to change for tcp server
 template<typename QItem>
 bool jstd::TcpServer<QItem>::add_client(const std::string &ip, const uint16_t &port) {
 	LOG_TRACE(TSVR);
 	NetConnection conn;
 	conn.ip_addr = ip;
-	conn.sock_type = SOCK_DGRAM;
+	conn.sock_type = SOCK_STREAM;
 	conn.sa.sin_port = port;
 	conn.sa.sin_family = AF_INET;
-	int rc = inet_aton(conn.ip_addr.c_str(), &conn.sa.sin_addr);
-	if (rc < 0) {
+	if (inet_aton(conn.ip_addr.c_str(), &conn.sa.sin_addr) < 0) {
 		LOG_ERROR(TSVR, "there was an error converting ip str:", ip, " to binary form");
 		return false;
 	}
@@ -257,20 +267,17 @@ bool jstd::TcpServer<QItem>::add_client(const std::string &ip, const uint16_t &p
 		          sockErrToString(errno));
 		return false;
 	}
+	conn.sockfd = sockfd;
 	add_client(conn);
 	return true;
 }
 
-// todo :: subject to change for tcp server
-// add client only if not currently in map
+// add client only if not currently in map, overwrites if on same ip and port
 template<typename QItem>
 void jstd::TcpServer<QItem>::add_client(const NetConnection &conn) {
-#ifdef MULTITHREADED_SRVR
 	std::lock_guard<std::mutex> lckm(m_cmtx);
-#endif
-	uint64_t hash_id = hash_conn(conn);
-	if (m_client_connections.find(hash_id) == m_client_connections.end())
-		m_client_connections[hash_id] = conn;
+	LOG_DEBUG(TSVR, "adding new client with ip: ", conn.ip_addr, " port: ", conn.port);
+	m_client_connections[hash_conn(conn)] = conn;
 	m_stats.clients_added_cnt++;
 }
 
@@ -291,7 +298,7 @@ bool jstd::TcpServer<QItem>::process_item(QItem &item) {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::process_item(QItem &&item) {
+bool jstd::TcpServer<QItem>::process_item(QItem&& item) {
 	LOG_TRACE(TSVR);
 	LOG_INFO(TSVR, "processing rval ref item recvd:\n", item);
 	std::stringstream ss;
@@ -304,32 +311,6 @@ bool jstd::TcpServer<QItem>::process_item(QItem &&item) {
 	return send_item(resp);
 }
 
-// process item, but perform a client lookup via hash_id
-// typically this can be called from the recv thread
-template<typename QItem>
-bool jstd::TcpServer<QItem>::process_item(QItem &&item, uint64_t hash_id) {
-	bool found = false;
-	auto connection = lookup_client(hash_id, found);
-	if (!found) {
-		LOG_WARNING(TSVR, "failed to find active connection, ", "for hash_id: ", hash_id, "aborting operation");
-		return false;
-	}
-	item.conn = connection->second;
-	return process_item(item);
-}
-
-// todo :: subject to change for tcp server
-template<typename QItem>
-auto jstd::TcpServer<QItem>::lookup_client(const uint64_t &hash_id, bool &found) {
-#ifdef MULTITHREADED_SRVR
-	std::lock_guard<std::mutex> lckm(m_cmtx);
-#endif
-	auto it = m_client_connections.find(hash_id);
-	found = (it != m_client_connections.end());
-	return it;
-}
-
-// todo :: subject to change for tcp server
 template<typename QItem>
 bool jstd::TcpServer<QItem>::send_item(const QItem &item) {
 	LOG_TRACE(TSVR);
@@ -339,19 +320,17 @@ bool jstd::TcpServer<QItem>::send_item(const QItem &item) {
 		LOG_DEBUG(TSVR, num_clients, " have been broadcasted data");
 		return true;
 	}
-	ssize_t bytes_sent = sendto(item.conn.sockfd,
-	                            outBoundBuff.data(),
-	                            outBoundBuff.size(),
-	                            0,
-	                            (const struct sockaddr *) &item.conn.sa,
-	                            item.conn.addr_len);
-	if (bytes_sent < 0) {
+	ssize_t bytes_sent = send(item.conn.sockfd, outBoundBuff.data(), outBoundBuff.size(), 0);
+	if (bytes_sent == SOCKET_ERROR) {
 		LOG_ERROR(TSVR,
 		          "failed to send data, errno# ",
 		          errno,
 		          " descr: ",
 		          sockErrToString(errno));
 		return false;
+	} else if (bytes_sent == 0) {
+		LOG_WARNING(TSVR, "client is no longer connected, removing connection from client map :(");
+		LOG_DEBUG(TSVR, (remove_client(item.conn)) ? "successfully removed client":"failed to remove client");
 	}
 	LOG_INFO(TSVR,
 	         "successfully sent out ",
@@ -363,55 +342,21 @@ bool jstd::TcpServer<QItem>::send_item(const QItem &item) {
 	return true;
 }
 
-// todo :: subject to change for tcp server
 template<typename QItem>
-bool jstd::TcpServer<QItem>::send_item(const QItem &item, uint64_t hash_id) {
+bool jstd::TcpServer<QItem>::send_item(const QItem &item, const std::string& ipaddr, const in_port_t& port) {
 	LOG_TRACE(TSVR);
 	if (m_is_bcast) {
 		int num_clients = broadcast_data(item.serialize());
 		LOG_DEBUG(TSVR, num_clients, " clients have been broadcasted data to");
 		return true;
 	}
-	bool found;
-	auto client_it = lookup_client(hash_id, found);
-	if (!found) {
-		LOG_ERROR(TSVR, "client with hash_id: ", hash_id, " not found, not sending message");
+	auto client_it = lookup_client(ipaddr, port);
+	if (client_it == m_client_connections.end()) {
+		LOG_ERROR(TSVR, "client not found, not sending message");
 		return false;
 	}
 	item.conn = client_it->second;
 	return send_item(item);
-}
-
-template<typename QItem>
-bool jstd::TcpServer<QItem>::set_nonblocking(bool isblocking) {
-	LOG_TRACE(TSVR);
-	if (isblocking) {
-		if (m_svr_conn.sockfd == INVALID_SOCKET) {
-			LOG_ERROR(TSVR, "svr listening socket is invalid");
-			return false;
-		}
-		fcntl(m_svr_conn.sockfd, F_SETFL, fcntl(m_svr_conn.sockfd, F_GETFL) | O_NONBLOCK);
-		if (fcntl(m_svr_conn.sockfd, F_GETFL) & O_NONBLOCK) {  // todo :: this check doesnt seem to work
-			LOG_WARNING(TSVR, "non blocking operation NOT set on listening socket");
-			return false;
-		} else {
-			m_is_nonblocking = true;
-			LOG_DEBUG(TSVR, "non-blocking recv operation set on listening socket");
-			return true;
-		}
-	} else {  // set back to blocking if nonblocking already set
-		if (fcntl(m_svr_conn.sockfd, F_GETFL) & O_NONBLOCK) {
-			fcntl(m_svr_conn.sockfd, F_SETFL,
-			      fcntl(m_svr_conn.sockfd, F_GETFL) ^ O_NONBLOCK);
-			m_is_nonblocking = false;
-		}
-	}
-	return true;
-}
-
-template<typename QItem>
-bool jstd::TcpServer<QItem>::is_nonblocking() {
-	return static_cast<bool>(fcntl(m_svr_conn.sockfd, F_GETFL) & O_NONBLOCK);
 }
 
 template<typename QItem>
@@ -424,7 +369,7 @@ bool jstd::TcpServer<QItem>::set_bcast_mode(bool is_set) {
 		LOG_INFO(TSVR, "disabling broadcast mode on server");
 	}
 	m_is_bcast = is_set;
-	return false;
+	return is_set;
 }
 
 template<typename QItem>
@@ -438,9 +383,7 @@ int jstd::TcpServer<QItem>::broadcast_data(const std::vector<uint8_t> &data) {
 	int client_cnt = 0;
 	item.buff = data;
 	LOG_DEBUG(TSVR, "broadcasting data to ", m_client_connections.size(), " clients");
-#ifdef MULTITHREADED_SRVR
 	std::lock_guard<std::mutex> lckm(m_cmtx);
-#endif
 	for (const auto &client : m_client_connections) {
 		item.conn = client.second;
 		if (send_item(item)) {
@@ -457,76 +400,82 @@ int jstd::TcpServer<QItem>::broadcast_data(const std::vector<uint8_t> &data) {
 
 template<typename QItem>
 void jstd::TcpServer<QItem>::clear_clients() {
-#ifdef MULTITHREADED_SRVR
 	std::lock_guard<std::mutex> lckm(m_cmtx);
-#endif
 	m_client_connections.clear();
 }
 
-// todo :: subject to change for tcp server
 template<typename QItem>
-bool jstd::TcpServer<QItem>::remove_client(const std::string &ipaddr, const int &port) {
-	LOG_TRACE(TSVR);
-	LOG_DEBUG(TSVR, "removing client ", ipaddr, ":", port);
-#ifdef MULTITHREADED_SRVR
-	std::lock_guard<std::mutex> lckm(m_cmtx);
-#endif
-	return _remove_client();
-}
-
-template<typename QItem>
-void jstd::TcpServer<QItem>::_build_qitem(QItem &item,
-                                          const uint8_t *buff, const ssize_t &len, const sockaddr_in &addr) const {
-	item.conn.ip_addr = std::string(inet_ntoa(addr.sin_addr));
-	item.conn.sa = addr;
-	item.buff = std::vector<uint8_t>(buff, buff + len);
+QItem jstd::TcpServer<QItem>::build_qitem(std::vector<uint8_t>&& data, const NetConnection& conn) const {
+	QItem item;
+	item.conn = conn;
+	item.buff = std::move(data);
+	return item;
 }
 
 template<typename QItem>
 bool jstd::TcpServer<QItem>::set_recv_timeout(int milli) {
 	LOG_TRACE(TSVR);
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = milli * 1000;
-	if (setsockopt(m_svr_conn.sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-		LOG_ERROR(TSVR, "there was an error setting socket option for recv timeout, errno", errno);
-		return false;
-	}
+	// if zero timeout val then no timeout
+	m_fd_sets.timeout.tv_sec = 0;
+	m_fd_sets.timeout.tv_usec = milli * 1000;
 	LOG_DEBUG(TSVR, "set recv timeout to ", milli, "msec");
 	return true;
 }
 
-// ------------------------------------------MULTITHREAD SUPPORT-------------------------------------------------
-#ifdef MULTITHREADED_SRVR
-
-// todo :: look in to using select or polling here
 template<typename QItem>
 void jstd::TcpServer<QItem>::msg_recving() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "message receiving thread started");
 	uint8_t buff[MAX_BUFF_SIZE];
 	std::memset(buff, 0, MAX_BUFF_SIZE);
-	ssize_t num_bytes = 0;
+	ssize_t len = 0;
 	sockaddr_in from_addr = {0};
 	socklen_t addr_len = sizeof(sockaddr_in);
+	FD_ZERO(&m_fd_sets.master_set);
+	FD_SET(m_svr_conn.sockfd, &m_fd_sets.master_set);
+	m_fd_sets.max_fd = m_svr_conn.sockfd;
+	int sockfd;
 	while (m_recv_active) {
-		num_bytes = recvfrom(m_svr_conn.sockfd,
-		                     buff,
-		                     MAX_BUFF_SIZE,
-		                     0,
-		                     (struct sockaddr *) &from_addr,
-		                     &addr_len);
-		if (num_bytes > 0) {
-			QItem item;
-			_build_qitem(item, buff, num_bytes, from_addr);
-			LOG_INFO(TSVR, "recvd ", num_bytes, " bytes from ", item.conn.ip_addr, ":", item.conn.sa.sin_port);
-			add_client(item.conn);
-			push_qitem(item);
-			m_stats.msg_recvd_cnt++;
-			std::memset(buff, 0, MAX_BUFF_SIZE);
-		}
+		sockfd = select_active_socket();
+		if (sockfd == m_svr_conn.sockfd) // listener socket is active
+			accept_new_connection(sockfd);
+		else if (sockfd == SELECT_TIMEOUT)
+			process_select_timeout();
+		else if (sockfd == SOCKET_ERROR)
+			handle_select_error();
+		else
+			recv_data(sockfd);
 	}
 	LOG_DEBUG(TSVR, "exiting message recv thread...");
+}
+
+template<typename QItem>
+void jstd::TcpServer<QItem>::recv_data(int sockfd) {
+	LOG_TRACE(TSVR);
+	uint8_t buff[MAX_BUFF_SIZE];
+	ssize_t len = recv(sockfd, buff, MAX_BUFF_SIZE, 0);
+	if (len > 0) {
+		auto conn_entry = lookup_client(sockfd);
+		if (conn_entry == m_client_connections.end()) {
+			LOG_WARNING(TSVR, "connection associated with recvd data not found, not processing data");
+			return;
+		}
+		on_data(std::vector<uint8_t>(buff, buff + len), conn_entry->second);
+	} else if (len == 0) {
+		LOG_DEBUG(TSVR, "connection has been closed by client");
+	} else if (len == SOCKET_ERROR) {
+		LOG_ERROR(TSVR, "an error occured receiving data :( errno: ", errno, " descr: ", sockErrToString(errno));
+	}
+	else {
+		LOG_WARNING(TSVR, "socket recv state unknown ??");
+	}
+}
+
+template<typename QItem>
+void jstd::TcpServer<QItem>::on_data(std::vector<uint8_t>&& data, const NetConnection& conn) {
+	LOG_DEBUG(TSVR, "building qitem for processing. A ", data.size(), " byte tcp packet");
+	auto item = build_qitem(std::move(data), conn);
+	push_qitem(item);
 }
 
 template<typename QItem>
@@ -536,7 +485,7 @@ void jstd::TcpServer<QItem>::msg_processing() {
 	while (m_qproc_active) {
 		sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
 		if (!m_msg_queue.empty()) {
-			if (process_item(std::move(m_msg_queue.front())))
+			if ( process_item(std::move(m_msg_queue.front())) )
 				m_stats.msg_processed_cnt++;
 			m_qmtx.lock();
 			m_msg_queue.pop();
@@ -566,21 +515,116 @@ void jstd::TcpServer<QItem>::push_qitem(const QItem &item) {
 template<typename QItem>
 void jstd::TcpServer<QItem>::join_threads() {
 	LOG_TRACE(TSVR);
-	LOG_DEBUG(TSVR, "UDP server is now blocking, until app termination");
+	LOG_DEBUG(TSVR, "server is now blocking, until app termination");
 	m_recv_thread.join();
 	m_q_proc_thread.join();
-	LOG_DEBUG(TSVR, "UDP server theads have exited");
+	LOG_DEBUG(TSVR, "server threads have exited...");
 }
 
 template<typename QItem>
 void jstd::TcpServer<QItem>::kill_threads() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "shuttdown server threads");
-	LOG_DEBUG(TSVR, "\n", m_stats);
+	LOG_DEBUG(TSVR, "\n", m_stats, "\n");
 	m_qproc_active = false;
 	m_recv_active = false;
 	join_threads();
 }
 
-#endif    // THREADED REGION OF SOURCE
+// function selects the active socket descriptor from the master sock fd list and returns it
+template<typename QItem>
+int jstd::TcpServer<QItem>::select_active_socket() {
+	LOG_TRACE(TSVR);
+	std::memcpy(&m_fd_sets.working_set, &m_fd_sets.master_set, sizeof(m_fd_sets.master_set));
+	int rc = select(m_fd_sets.max_fd+1, &m_fd_sets.working_set, nullptr, nullptr, nullptr);
+	if (rc == SOCKET_ERROR) return SOCKET_ERROR;
+	if (rc == 0) return SELECT_TIMEOUT;
+	for (int i = 0; i < m_fd_sets.max_fd; i++) {
+		if (FD_ISSET(i, &m_fd_sets.working_set)) {
+			return i;
+		}
+	}
+	return SOCKET_ERROR;
+}
+
+template<typename QItem>
+bool jstd::TcpServer<QItem>::accept_new_connection(int sockfd) {
+	LOG_TRACE(TSVR);
+	LOG_DEBUG(TSVR, "accepting new connections");
+	int new_sd;
+	int cnt = 0;
+	NetConnection new_conn;
+	while(true) {
+		new_sd = accept(sockfd, (struct sockaddr*)&new_conn.sa, &new_conn.addr_len);
+		if (new_sd != SOCKET_ERROR) {
+			new_conn.ip_addr = std::string(inet_ntoa(new_conn.sa.sin_addr));
+			new_conn.port = ntohl(new_conn.sa.sin_port);
+			new_conn.sockfd = sockfd;
+			new_conn.sock_type = SOCK_STREAM;
+			FD_SET(new_sd, &m_fd_sets.master_set);
+			if (new_sd > m_fd_sets.max_fd)
+				m_fd_sets.max_fd = new_sd;
+			add_client(new_conn);
+			cnt++;
+		} else
+			break;
+	}
+	LOG_DEBUG(TSVR, "added ", cnt, " new connections");
+	return cnt>0;
+}
+
+template<typename QItem>
+inline bool jstd::TcpServer<QItem>::_remove_client(const std::string &ipaddr, const int &port) noexcept {
+	std::lock_guard<std::mutex> lckm(m_cmtx);
+	return remove_client(ipaddr, port);
+}
+
+template<typename QItem>
+auto jstd::TcpServer<QItem>::lookup_client(const std::string &ipaddr, const in_port_t &port) {
+	LOG_TRACE(TSVR);
+	std::lock_guard<std::mutex> lck(m_cmtx);
+	LOG_DEBUG(TSVR, "performing client lookup with ip: ", ipaddr, " and port: ", port);
+	return m_client_connections.find(hash_conn(ipaddr, port));
+}
+
+template<typename QItem>
+bool jstd::TcpServer<QItem>::remove_client(const std::string &ipaddr, const in_port_t &port) {
+	LOG_DEBUG(TSVR, "removing client connection ipaddr: ", ipaddr, " and port: ", port);
+	std::lock_guard<std::mutex> lck(m_qmtx);
+	size_t cnt = m_client_connections.erase(hash_conn(ipaddr, port));
+	return cnt > 0;
+}
+
+template<typename QItem>
+bool jstd::TcpServer<QItem>::remove_client(const jstd::NetConnection &conn) {
+	LOG_TRACE(TSVR);
+	return remove_client(conn.ip_addr, static_cast<const in_port_t>(conn.port));
+}
+
+template<typename QItem>
+auto jstd::TcpServer<QItem>::lookup_client(int sockfd) {
+	struct sockaddr_in addr = {0};
+	socklen_t len = sizeof(sockaddr_in);
+	int rc = getpeername(sockfd, (struct sockaddr*)&addr, &len);
+	if (rc == SOCKET_ERROR) {
+		LOG_ERROR(TSVR, "there was an error getting the socket address. errno: ",
+			errno, " descr: ", sockErrToString(errno));
+		return m_client_connections.end();
+	}
+	return lookup_client(std::string(inet_ntoa(addr.sin_addr)), ntohs(addr.sin_port));
+}
+
+template<typename QItem>
+bool jstd::TcpServer<QItem>::process_select_timeout() {
+	LOG_TRACE(TSVR);
+	LOG_DEBUG(TSVR, "processing select timout event!!!");
+	return true;
+}
+
+template<typename QItem>
+void jstd::TcpServer<QItem>::handle_select_error() {
+	LOG_TRACE(TSVR);
+	LOG_DEBUG(TSVR, "handling select error...");
+}
+
 #endif //JSTDLIB_TCP_SERVER_H

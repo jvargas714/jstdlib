@@ -1,6 +1,6 @@
 #ifndef UPD_SERVER_H
 #define UPD_SERVER_H
-
+#include <stdlib.h>
 #include <cstdint>
 #include <iostream>
 
@@ -165,21 +165,22 @@ jstd::UdpServer<QItem>::UdpServer()
 	LOG_TRACE(USVR);
 	m_svr_conn.ip_addr = LOCALHOSTIP;
 	m_svr_conn.sock_type = SOCK_DGRAM;
-	m_svr_conn.sa.sin_port = DEFAULT_UDP_SERVER_PORT;
+	m_svr_conn.sa.sin_port = htons(DEFAULT_UDP_SERVER_PORT);
+	m_svr_conn.port = DEFAULT_UDP_SERVER_PORT;
 	if (!inet_aton(LOCALHOSTIP, &m_svr_conn.sa.sin_addr)) {
 		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
-		exit(FATAL_ERR::IP_INET_FAIL);
+		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (m_svr_conn.sockfd < 0) {
 		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
-		exit(FATAL_ERR::SOCK_FAIL);
+		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
 	}
 	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
 	if (rc < 0) {
 		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
-		exit(FATAL_ERR::SOCK_BIND_FAIL);
+		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
 	}
 #ifdef MULTITHREADED_SRVR
 	m_is_nonblocking = false;
@@ -193,24 +194,25 @@ jstd::UdpServer<QItem>::UdpServer(const std::string &ip, const in_port_t &port)
 	LOG_TRACE(USVR);
 	m_svr_conn.ip_addr = ip;
 	m_svr_conn.sock_type = SOCK_DGRAM;
-	m_svr_conn.sa.sin_port = port;
+	m_svr_conn.sa.sin_port = htons(port);
+	m_svr_conn.port = port;
 	if (inet_aton(m_svr_conn.ip_addr.c_str(), &m_svr_conn.sa.sin_addr) == 0) {
 		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
 		sleep_milli(1000);
-		exit(FATAL_ERR::IP_INET_FAIL);
+		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (m_svr_conn.sockfd < 0) {
 		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
 		sleep_milli(1000);
-		exit(FATAL_ERR::SOCK_FAIL);
+		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
 	}
 	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
 	if (rc < 0) {
 		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
 		sleep_milli(1000);
-		exit(FATAL_ERR::SOCK_BIND_FAIL);
+		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
 	}
 #ifdef MULTITHREADED_SRVR
 	m_is_nonblocking = false;
@@ -520,7 +522,7 @@ void jstd::UdpServer<QItem>::msg_recving() {
 			add_client(item.conn);
 			push_qitem(item);
 			m_stats.msg_recvd_cnt++;
-			std::memset(buff, 0, MAX_BUFF_SIZE);
+			std::memset(buff, 0, sizeof(buff));
 		}
 	}
 	LOG_DEBUG(USVR, "exiting message recv thread...");

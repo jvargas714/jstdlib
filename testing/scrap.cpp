@@ -1,14 +1,16 @@
-#include "logger.h"
 #include "net_types.h"
+#include <arpa/inet.h>
+#include "jstd_util.h"
+#include <sys/filio.h>
+#include <iostream>
 
 using namespace std;
 
 int main () {
-    jstd::NetConnection conn1;
-    jstd::NetConnection conn2;
-    conn1 = conn2;
-    jstd::ServerStats stats;
-    LOG_DEBUG(LOG_MODULE::GENERAL, stats);
+	in_addr addr;
+	addr.s_addr= -1;
+
+	cout << std::string(inet_ntoa(addr)) << endl;
     return 0;
 }
 

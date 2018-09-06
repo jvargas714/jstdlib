@@ -44,7 +44,8 @@ enum class LOG_MODULE {
     GENERAL,
     TEXASHOLDEM,
     UDPSERVER,
-    TCPSERVER
+    TCPSERVER,
+    TCPCONNCMGR
 };
 
 enum LOG_LEVEL {
@@ -175,6 +176,7 @@ const std::string log_module(LOG_MODULE mld) {
         case LOG_MODULE::TEXASHOLDEM:         return "<TXHDM>";
         case LOG_MODULE::UDPSERVER:           return "<USVR>";
         case LOG_MODULE::TCPSERVER:           return "<TSVR>";
+        case LOG_MODULE::TCPCONNCMGR:         return "<TCM>";
     }
 }
 
@@ -199,8 +201,8 @@ logger::logger(std::string filename, bool log_to_stdout) :
 logger& logger::get_instance(const std::string& filename) {
     if (!logger::instCreated) {
         lg = new logger((!filename.empty()) ?
-                              LOG_DIR + "/" + filename :
-                              LOG_DIR + "/" + gen_def_filename());
+                              std::string(LOG_DIR) + "/" + filename :
+                              std::string(LOG_DIR) + "/" + gen_def_filename());
         logger::instCreated = true;
         logger::log_proc_is_alive = true;
         Q_Proc_Thread();
@@ -291,11 +293,11 @@ void logger::build_stream(std::stringstream& ss, const ToLog& data) {
 }
 
 void logger::setup_logging() {
-    if (mkdir(LOG_DIR.c_str(), DEFFILEMODE) == -1) {
+    if (mkdir(LOG_DIR, DEFFILEMODE) == -1) {
         CERR << FN << "there was an error creating logging directory errno: " << errno << END;
         output_stdout = true;
     }
-    strm_uptr = std::make_unique<std::ofstream>(LOG_DIR + log_filename, std::ios::app);
+    strm_uptr = std::make_unique<std::ofstream>(std::string(LOG_DIR) + log_filename, std::ios::app);
     if (!strm_uptr->is_open()) {
         CERR << FN << "log file is not open for logging, logging to stdout instead" << END;
         output_stdout = true;

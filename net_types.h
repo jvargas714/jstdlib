@@ -9,6 +9,7 @@
 #include <sstream>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/errno.h>
 
 
 // increment udp ports by 5
@@ -16,6 +17,8 @@ constexpr in_port_t DEFAULT_UDP_SERVER_PORT = 5005;
 
 // increment tcp ports by 2
 constexpr in_port_t DEFAULT_TCP_SERVER_PORT = 5002;
+
+constexpr int DEFAULT_TCP_RECV_TIMEOUT_MILLI = 2000;
 
 // maximum buff size
 constexpr int MAX_BUFF_SIZE = 2048;
@@ -26,15 +29,21 @@ constexpr char LOCALHOSTIP[] = "127.0.0.1";
 // err codes
 constexpr int  INVALID_SOCKET = -1;
 constexpr int SOCKET_ERROR = -1;
+constexpr int SELECT_TIMEOUT = 0;
 
 // server operating parameters
 constexpr int DEFAULT_SVR_THREAD_SLEEP = 50; // in ms
+
+// max number of back logged connection requests that will be listened to
+constexpr int MAX_NUMBER_TCP_CONNECTIONS = 100;
 
 // fatal error exit codes
 enum class FATAL_ERR {
     SOCK_FAIL = -10,
     IP_INET_FAIL,
-    SOCK_BIND_FAIL
+    SOCK_BIND_FAIL,
+    SOCK_LISTEN_FAIL,
+    SOCKOPT_FAIL
 };
 
 enum class SERVER_TYPE {
@@ -67,7 +76,18 @@ std::string sockErrToString(int32_t type) {
 }
 #else // macosx
 std::string sockErrToString(int32_t type) {
-    return "NEEDS IMPLEMENTATION";
+	switch(type) {
+		case EAGAIN:
+			return "Resource temporarily unavailable";
+		case EINVAL:
+			return "socket has been shutdown";
+		case EBADF:
+			return "the socket is not a valid descriptor";
+		case ENOBUFS:
+			return " Insufficient resources were available in the system to perform the operation.";
+		default:
+			return "Unknown error code: " + std::to_string(type);
+	}
 }
 #endif
 
@@ -108,6 +128,7 @@ std::string sockErrToString(int32_t type) {
         sockaddr_in sa;
         uint32_t sock_type;
         int sockfd;
+        int port;
         socklen_t addr_len;
         NetConnection& operator = (const NetConnection& conn) = default;
         NetConnection() : ip_addr("127.0.0.1"),
@@ -121,6 +142,14 @@ std::string sockErrToString(int32_t type) {
                             sock_type(conn.sock_type),
                             sockfd(conn.sockfd),
                             addr_len(sizeof(sockaddr_in)) {}
+    };
+
+    struct FdSets {
+        struct fd_set working_set;
+        struct fd_set master_set;
+        int max_fd;
+        struct timeval timeout;
+        FdSets(): max_fd(0), working_set{0}, master_set{0}, timeout{0} {};
     };
 
     // std item to hold a buffer
