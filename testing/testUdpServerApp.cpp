@@ -19,7 +19,7 @@ void handle_args(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     handle_args(argc, argv);
-    jstd::UdpServer<jstd::NetItem> srvr(g_ipaddr, g_port);
+    jstd::UdpServer<jstd::net::NetItem> srvr(g_ipaddr, g_port);
 //    srvr.set_recv_timeout(10);
     srvr.set_nonblocking(true);
     srvr.run();

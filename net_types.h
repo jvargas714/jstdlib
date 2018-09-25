@@ -52,136 +52,149 @@ enum class SERVER_TYPE {
 };
 
 namespace jstd {
+	namespace net {
 #ifdef LINUX_OS
-std::string sockErrToString(int32_t type) {
-    switch (type) {
-        case EACCES:
-            return "Permission to create socket of the specified type is denied";
-        case EAFNOSUPPORT:
-            return "The implementation does not support the specified address family";
-        case EINVAL:
-            return "Invalid flags in type";
-        case EMFILE:
-            return "The per-process limit on the number of open file descriptors has been reached";
-        case ENFILE:
-            return "The system-wide limit on the total number of open files has been reached";
-        case ENOBUFS:
-        case ENOMEM:
-            return "Insufficient memory is available.  The socket cannot be created until sufficient resources are freed";
-        case EPROTONOSUPPORT:
-            return "The protocol type or the specified protocol is not supported within this domain";
-        default:
-            return "Error type unknown";
-    }
-}
+		std::string sockErrToString(int32_t type) {
+			switch (type) {
+				case EACCES:
+					return "Permission to create socket of the specified type is denied";
+				case EAFNOSUPPORT:
+					return "The implementation does not support the specified address family";
+				case EINVAL:
+					return "Invalid flags in type";
+				case EMFILE:
+					return "The per-process limit on the number of open file descriptors has been reached";
+				case ENFILE:
+					return "The system-wide limit on the total number of open files has been reached";
+				case ENOBUFS:
+				case ENOMEM:
+					return "Insufficient memory is available.  The socket cannot be created until sufficient resources are freed";
+				case EPROTONOSUPPORT:
+					return "The protocol type or the specified protocol is not supported within this domain";
+				default:
+					return "Error type unknown";
+			}
+		}
 #else // macosx
-std::string sockErrToString(int32_t type) {
-	switch(type) {
-		case EAGAIN:
-			return "Resource temporarily unavailable";
-		case EINVAL:
-			return "socket has been shutdown";
-		case EBADF:
-			return "the socket is not a valid descriptor";
-		case ENOBUFS:
-			return " Insufficient resources were available in the system to perform the operation.";
-		default:
-			return "Unknown error code: " + std::to_string(type);
-	}
-}
+
+		std::string sockErrToString(int32_t type) {
+			switch (type) {
+				case EAGAIN:
+					return "Resource temporarily unavailable";
+				case EINVAL:
+					return "socket has been shutdown";
+				case EBADF:
+					return "the socket is not a valid descriptor";
+				case ENOBUFS:
+					return " Insufficient resources were available in the system to perform the operation.";
+				default:
+					return "Unknown error code: " + std::to_string(type);
+			}
+		}
+
 #endif
 
-    struct ServerStats {
-        ServerStats(): msg_recvd_cnt(0),
-            msg_processed_cnt(0),
-            sock_err_cnt(0),
-            clients_added_cnt(0),
-            clients_removed_cnt(0) {}
+		struct ServerStats {
+			ServerStats() : msg_recvd_cnt(0),
+			                msg_processed_cnt(0),
+			                sock_err_cnt(0),
+			                clients_added_cnt(0),
+			                clients_removed_cnt(0) {}
 
-        uint64_t msg_recvd_cnt;
-        uint64_t msg_processed_cnt;
-        uint64_t sock_err_cnt;
-        uint64_t clients_added_cnt;
-        uint64_t clients_removed_cnt;
+			uint64_t msg_recvd_cnt;
+			uint64_t msg_processed_cnt;
+			uint64_t sock_err_cnt;
+			uint64_t clients_added_cnt;
+			uint64_t clients_removed_cnt;
 
-        std::string to_string() const {
-            std::stringstream ss;
-            ss << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=Server Statistics-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n";
-            ss << "\tMessages Received: " << msg_recvd_cnt << "\n";
-            ss << "\tMessages Processed: " << msg_processed_cnt << "\n";
-            ss << "\tClients Added: " << clients_added_cnt << "\n";
-            ss << "\tClients Removed: " << clients_removed_cnt << "\n";
-            ss << "\tSocket Errors: " << sock_err_cnt << "\n";
-            ss << "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n";
-            return ss.str();
-        }
-    };
+			std::string to_string() const {
+				std::stringstream ss;
+				ss
+					<< "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=Server Statistics-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n";
+				ss << "\tMessages Received: " << msg_recvd_cnt << "\n";
+				ss << "\tMessages Processed: " << msg_processed_cnt << "\n";
+				ss << "\tClients Added: " << clients_added_cnt << "\n";
+				ss << "\tClients Removed: " << clients_removed_cnt << "\n";
+				ss << "\tSocket Errors: " << sock_err_cnt << "\n";
+				ss
+					<< "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n";
+				return ss.str();
+			}
+		};
 
-    std::ostream& operator << (std::ostream& os, const ServerStats& stats) {
-        os << stats.to_string();
-        return os;
-    }
+		std::ostream &operator<<(std::ostream &os, const ServerStats &stats) {
+			os << stats.to_string();
+			return os;
+		}
 
-    // defaults type to UDP
-    struct NetConnection {
-        std::string ip_addr;
-        sockaddr_in sa;
-        uint32_t sock_type;
-        int sockfd;
-        int port;
-        socklen_t addr_len;
-        NetConnection& operator = (const NetConnection& conn) = default;
-        NetConnection() : ip_addr("127.0.0.1"),
-                          sa({0}),
-                          sock_type(SOCK_DGRAM),
-                          sockfd(INVALID_SOCKET),
-                          addr_len(sizeof(sockaddr_in)) {}
-        NetConnection(const NetConnection& conn) :
-                            ip_addr(conn.ip_addr),
-                            sa(conn.sa),
-                            sock_type(conn.sock_type),
-                            sockfd(conn.sockfd),
-                            addr_len(sizeof(sockaddr_in)) {}
-    };
+		// defaults type to UDP
+		struct NetConnection {
+			std::string ip_addr;
+			sockaddr_in sa;
+			uint32_t sock_type;
+			int sockfd;
+			int port;
+			socklen_t addr_len;
 
-    struct FdSets {
-        struct fd_set working_set;
-        struct fd_set master_set;
-        int max_fd;
-        struct timeval timeout;
-        FdSets(): max_fd(0), working_set{0}, master_set{0}, timeout{0} {};
-    };
+			NetConnection &operator=(const NetConnection &conn) = default;
 
-    // std item to hold a buffer
-    // contains socket information for easy usage
-    // id :: identifies type of message being sent out || or hash_id
-    // serialize() :: converts entire data structure to a buffer, reciever of this item should be able to
-    //                reconstruct the data structure. Note serialize does not serialize NetConnection
-    struct NetItem {
-        NetConnection conn;
-        std::vector<uint8_t> buff;
+			NetConnection() : ip_addr("127.0.0.1"),
+			                  sa({0}),
+			                  sock_type(SOCK_DGRAM),
+			                  sockfd(INVALID_SOCKET),
+			                  addr_len(sizeof(sockaddr_in)) {}
 
-        NetItem()=default;
-        NetItem(const NetItem& conn) : conn{conn.conn} { buff = conn.buff; }
-        ~NetItem()=default;
+			NetConnection(const NetConnection &conn) :
+				ip_addr(conn.ip_addr),
+				sa(conn.sa),
+				sock_type(conn.sock_type),
+				sockfd(conn.sockfd),
+				addr_len(sizeof(sockaddr_in)) {}
+		};
 
-        inline std::vector<uint8_t> serialize() const {
-            return buff;
-        }
+		struct FdSets {
+			struct fd_set working_set;
+			struct fd_set master_set;
+			int max_fd;
+			struct timeval timeout;
 
-        size_t get_buff_len() const { return buff.size(); }
+			FdSets() : max_fd(0), working_set{0}, master_set{0}, timeout{0} {};
+		};
 
-        std::string to_string() const {
-            std::stringstream ss;
-            ss << "ip: " << conn.ip_addr;
-            ss << "port: " << conn.sa.sin_port;
-            ss << "buff size: " << buff.size();
-            return ss.str();
-        }
-    };
-    std::ostream& operator << (std::ostream& os, const NetItem& ni) {
-        os << ni.to_string();
-        return os;
-    }
-} // end jstd
+		// std item to hold a buffer
+		// contains socket information for easy usage
+		// id :: identifies type of message being sent out || or hash_id
+		// serialize() :: converts entire data structure to a buffer, reciever of this item should be able to
+		//                reconstruct the data structure. Note serialize does not serialize NetConnection
+		struct NetItem {
+			NetConnection conn;
+			std::vector<uint8_t> buff;
+
+			NetItem() = default;
+
+			NetItem(const NetItem &conn) : conn{conn.conn} { buff = conn.buff; }
+
+			~NetItem() = default;
+
+			inline std::vector<uint8_t> serialize() const {
+				return buff;
+			}
+
+			size_t get_buff_len() const { return buff.size(); }
+
+			std::string to_string() const {
+				std::stringstream ss;
+				ss << "ip: " << conn.ip_addr;
+				ss << "port: " << conn.sa.sin_port;
+				ss << "buff size: " << buff.size();
+				return ss.str();
+			}
+		};
+
+		std::ostream &operator<<(std::ostream &os, const NetItem &ni) {
+			os << ni.to_string();
+			return os;
+		}
+	}  // end namespace net
+} // end namespace jstd
 #endif //JSTDLIB_NET_TYPES_H

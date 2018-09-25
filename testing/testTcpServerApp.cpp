@@ -16,7 +16,7 @@ void handle_args(int argc, char** argv) {
 
 int main(int argc, char** argv) {
 	handle_args(argc, argv);
-	jstd::TcpServer<jstd::NetItem> tcp_server(g_ipaddr, g_port);
+	jstd::net::TcpServer<jstd::net::NetItem> tcp_server(g_ipaddr, g_port);
 	tcp_server.run();
 	tcp_server.join_threads();
 	return EXIT_SUCCESS;

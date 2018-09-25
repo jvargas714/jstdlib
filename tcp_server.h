@@ -46,107 +46,125 @@
 #define TSVR LOG_MODULE::TCPSERVER
 
 namespace jstd {
-	template<typename QItem>
-	class TcpServer {
-		// create a hash from ip str and and port
-		std::unordered_map<uint64_t, NetConnection> m_client_connections;
+	namespace net {
+		template<typename QItem>
+		class TcpServer {
+			// create a hash from ip str and and port
+			std::unordered_map<uint64_t, NetConnection> m_client_connections;
 
-		std::thread m_recv_thread;
-		std::thread m_q_proc_thread;
-		std::queue<QItem> m_msg_queue;
-		std::mutex m_qmtx;
-		std::mutex m_cmtx;
-		bool m_qproc_active;
-		bool m_recv_active;
-		FdSets m_fd_sets;
+			std::thread m_recv_thread;
+			std::thread m_q_proc_thread;
+			std::queue<QItem> m_msg_queue;
+			std::mutex m_qmtx;
+			std::mutex m_cmtx;
+			bool m_qproc_active;
+			bool m_recv_active;
+			FdSets m_fd_sets;
 
-		// listening socket
-		NetConnection m_svr_conn;
+			// listening socket
+			NetConnection m_svr_conn;
 
-		// broadcast mode flag
-		bool m_is_bcast;
+			// broadcast mode flag
+			bool m_is_bcast;
 
-		// message counter
-		ServerStats m_stats;
+			// message counter
+			ServerStats m_stats;
 
-	public:
-		// ctors
-		TcpServer();
-		TcpServer(const std::string &ip, const in_port_t &port);
-		~TcpServer();
+		public:
+			// ctors
+			TcpServer();
 
-		// adds udpclient to connection map
-		void add_client(const NetConnection &conn);
-		bool add_client(const std::string &ip, const uint16_t &port);
+			TcpServer(const std::string &ip, const in_port_t &port);
 
-		// find client by socket descriptor
-		auto lookup_client(const std::string& ipaddr, const in_port_t& port);
-		auto lookup_client(int sockfd);
+			~TcpServer();
 
-		// remove client identified by
-		bool remove_client(const std::string& ipaddr, const in_port_t& port);
-		bool remove_client(const NetConnection& conn);
+			// adds udpclient to connection map
+			void add_client(const NetConnection &conn);
 
-		// process methods
-		virtual bool process_item(QItem &item);
-		virtual bool process_item(QItem &&item);
-		virtual bool process_select_timeout();
+			bool add_client(const std::string &ip, const uint16_t &port);
 
-		// broadcast message to all active clients, returns number of clients succesfully sent out to
-		virtual int broadcast_data(const std::vector<uint8_t> &data);
+			// find client by socket descriptor
+			auto lookup_client(const std::string &ipaddr, const in_port_t &port);
 
-		// activate or deactivate bcast_mode
-		inline bool set_bcast_mode(bool is_set);
+			auto lookup_client(int sockfd);
 
-		// clear client map
-		inline void clear_clients();
+			// remove client identified by
+			bool remove_client(const std::string &ipaddr, const in_port_t &port);
 
-		// sends generic network message to client with hash_id
-		bool send_item(const QItem &item);
+			bool remove_client(const NetConnection &conn);
 
-		// send message to connection associated with the socket descriptor
-		bool send_item(const QItem &item, const std::string& ipaddr, const in_port_t& port);
+			// process methods
+			virtual bool process_item(QItem &item);
 
-		// sets recv time out for blocking  recvfrom call
-		bool set_recv_timeout(int milli);
+			virtual bool process_item(QItem &&item);
 
-		// process data from associated connection
-		virtual void on_data(std::vector<uint8_t>&& data, const NetConnection& conn);
+			virtual bool process_select_timeout();
 
-		// recvs msg and queues item for processing (thread)
-		void msg_recving();
+			// broadcast message to all active clients, returns number of clients succesfully sent out to
+			virtual int broadcast_data(const std::vector<uint8_t> &data);
 
-		// msg processing
-		void msg_processing();
+			// activate or deactivate bcast_mode
+			inline bool set_bcast_mode(bool is_set);
 
-		// run threads
-		bool run();
+			// clear client map
+			inline void clear_clients();
 
-		// make server run call blocking
-		void join_threads();
+			// sends generic network message to client with hash_id
+			bool send_item(const QItem &item);
 
-		// kill and join threads
-		void kill_threads();
+			// send message to connection associated with the socket descriptor
+			bool send_item(const QItem &item, const std::string &ipaddr, const in_port_t &port);
 
-	private:
-		virtual QItem build_qitem(std::vector<uint8_t>&& data, const NetConnection& conn) const;
-		virtual uint64_t hash_conn(const NetConnection &conn) const;
-		virtual uint64_t hash_conn(const std::string &ipaddr, const int &port) const;
-		inline bool _remove_client(const std::string &ipaddr, const int &port) noexcept;
-		bool init_listen_socket();
-		void push_qitem(const QItem &item);
-		int select_active_socket();
-		bool accept_new_connection(int sockfd);
-		void recv_data(int sockfd);
-		virtual void handle_select_error();
-	};
-}
+			// sets recv time out for blocking  recvfrom call
+			bool set_recv_timeout(int milli);
+
+			// process data from associated connection
+			virtual void on_data(std::vector<uint8_t> &&data, const NetConnection &conn);
+
+			// recvs msg and queues item for processing (thread)
+			void msg_recving();
+
+			// msg processing
+			void msg_processing();
+
+			// run threads
+			bool run();
+
+			// make server run call blocking
+			void join_threads();
+
+			// kill and join threads
+			void kill_threads();
+
+		private:
+			virtual QItem build_qitem(std::vector<uint8_t> &&data, const NetConnection &conn) const;
+
+			virtual uint64_t hash_conn(const NetConnection &conn) const;
+
+			virtual uint64_t hash_conn(const std::string &ipaddr, const int &port) const;
+
+			inline bool _remove_client(const std::string &ipaddr, const int &port) noexcept;
+
+			bool init_listen_socket();
+
+			void push_qitem(const QItem &item);
+
+			int select_active_socket();
+
+			bool accept_new_connection(int sockfd);
+
+			void recv_data(int sockfd);
+
+			virtual void handle_select_error();
+		};
+	}  // namespace net
+}  // namespace jstd
 
 
 
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-Implementation=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 template<typename QItem>
-bool jstd::TcpServer<QItem>::init_listen_socket() {
+bool jstd::net::TcpServer<QItem>::init_listen_socket() {
 	LOG_DEBUG(TSVR, "initializing listener socket");
 	int on;
 	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
@@ -180,7 +198,7 @@ bool jstd::TcpServer<QItem>::init_listen_socket() {
 
 // default connection settings
 template<typename QItem>
-jstd::TcpServer<QItem>::TcpServer()
+jstd::net::TcpServer<QItem>::TcpServer()
 	: m_qproc_active(false), m_recv_active(false), m_is_bcast(false) {
 	LOG_TRACE(TSVR);
 	m_svr_conn.ip_addr = LOCALHOSTIP;
@@ -203,7 +221,7 @@ jstd::TcpServer<QItem>::TcpServer()
 }
 
 template<typename QItem>
-jstd::TcpServer<QItem>::TcpServer(const std::string &ip, const in_port_t &port)
+jstd::net::TcpServer<QItem>::TcpServer(const std::string &ip, const in_port_t &port)
 	: m_qproc_active(false), m_recv_active(false), m_is_bcast(false) {
 	LOG_TRACE(TSVR);
 	m_svr_conn.ip_addr = ip;
@@ -228,26 +246,26 @@ jstd::TcpServer<QItem>::TcpServer(const std::string &ip, const in_port_t &port)
 }
 
 template<typename QItem>
-jstd::TcpServer<QItem>::~TcpServer() {
+jstd::net::TcpServer<QItem>::~TcpServer() {
 	LOG_TRACE(TSVR);
 	kill_threads();
 	logger::get_instance().stopLogging();
 }
 
 template<typename QItem>
-uint64_t jstd::TcpServer<QItem>::hash_conn(const NetConnection &conn) const {
+uint64_t jstd::net::TcpServer<QItem>::hash_conn(const NetConnection &conn) const {
 	std::hash<int> hasher;
 	return hasher(conn.sockfd);
 }
 
 template<typename QItem>
-uint64_t jstd::TcpServer<QItem>::hash_conn(const std::string &ipaddr, const int &port) const {
+uint64_t jstd::net::TcpServer<QItem>::hash_conn(const std::string &ipaddr, const int &port) const {
 	std::hash<std::string> hasher;
 	return hasher(ipaddr + std::to_string(port));
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::add_client(const std::string &ip, const uint16_t &port) {
+bool jstd::net::TcpServer<QItem>::add_client(const std::string &ip, const uint16_t &port) {
 	LOG_TRACE(TSVR);
 	NetConnection conn;
 	conn.ip_addr = ip;
@@ -274,7 +292,7 @@ bool jstd::TcpServer<QItem>::add_client(const std::string &ip, const uint16_t &p
 
 // add client only if not currently in map, overwrites if on same ip and port
 template<typename QItem>
-void jstd::TcpServer<QItem>::add_client(const NetConnection &conn) {
+void jstd::net::TcpServer<QItem>::add_client(const NetConnection &conn) {
 	std::lock_guard<std::mutex> lckm(m_cmtx);
 	LOG_DEBUG(TSVR, "adding new client with ip: ", conn.ip_addr, " port: ", conn.port);
 	m_client_connections[hash_conn(conn)] = conn;
@@ -284,7 +302,7 @@ void jstd::TcpServer<QItem>::add_client(const NetConnection &conn) {
 // process item off the msg queue
 // assumes item has valid connection information
 template<typename QItem>
-bool jstd::TcpServer<QItem>::process_item(QItem &item) {
+bool jstd::net::TcpServer<QItem>::process_item(QItem &item) {
 	LOG_TRACE(TSVR);
 	LOG_INFO(TSVR, "processing item recvd:\n", item);
 	std::stringstream ss;
@@ -298,7 +316,7 @@ bool jstd::TcpServer<QItem>::process_item(QItem &item) {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::process_item(QItem&& item) {
+bool jstd::net::TcpServer<QItem>::process_item(QItem&& item) {
 	LOG_TRACE(TSVR);
 	LOG_INFO(TSVR, "processing rval ref item recvd:\n", item);
 	std::stringstream ss;
@@ -312,7 +330,7 @@ bool jstd::TcpServer<QItem>::process_item(QItem&& item) {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::send_item(const QItem &item) {
+bool jstd::net::TcpServer<QItem>::send_item(const QItem &item) {
 	LOG_TRACE(TSVR);
 	std::vector<uint8_t> outBoundBuff = item.serialize();
 	if (m_is_bcast) {
@@ -343,7 +361,7 @@ bool jstd::TcpServer<QItem>::send_item(const QItem &item) {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::send_item(const QItem &item, const std::string& ipaddr, const in_port_t& port) {
+bool jstd::net::TcpServer<QItem>::send_item(const QItem &item, const std::string& ipaddr, const in_port_t& port) {
 	LOG_TRACE(TSVR);
 	if (m_is_bcast) {
 		int num_clients = broadcast_data(item.serialize());
@@ -360,7 +378,7 @@ bool jstd::TcpServer<QItem>::send_item(const QItem &item, const std::string& ipa
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::set_bcast_mode(bool is_set) {
+bool jstd::net::TcpServer<QItem>::set_bcast_mode(bool is_set) {
 	LOG_TRACE(TSVR);
 	if (is_set) {
 		LOG_INFO(TSVR, "setting server to broadcast mode, current client count: ",
@@ -373,7 +391,7 @@ bool jstd::TcpServer<QItem>::set_bcast_mode(bool is_set) {
 }
 
 template<typename QItem>
-int jstd::TcpServer<QItem>::broadcast_data(const std::vector<uint8_t> &data) {
+int jstd::net::TcpServer<QItem>::broadcast_data(const std::vector<uint8_t> &data) {
 	LOG_TRACE(TSVR);
 	if (data.empty()) {
 		LOG_WARNING(TSVR, "data buffer empty, not bcasting data");
@@ -399,13 +417,13 @@ int jstd::TcpServer<QItem>::broadcast_data(const std::vector<uint8_t> &data) {
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::clear_clients() {
+void jstd::net::TcpServer<QItem>::clear_clients() {
 	std::lock_guard<std::mutex> lckm(m_cmtx);
 	m_client_connections.clear();
 }
 
 template<typename QItem>
-QItem jstd::TcpServer<QItem>::build_qitem(std::vector<uint8_t>&& data, const NetConnection& conn) const {
+QItem jstd::net::TcpServer<QItem>::build_qitem(std::vector<uint8_t>&& data, const NetConnection& conn) const {
 	QItem item;
 	item.conn = conn;
 	item.buff = std::move(data);
@@ -413,7 +431,7 @@ QItem jstd::TcpServer<QItem>::build_qitem(std::vector<uint8_t>&& data, const Net
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::set_recv_timeout(int milli) {
+bool jstd::net::TcpServer<QItem>::set_recv_timeout(int milli) {
 	LOG_TRACE(TSVR);
 	// if zero timeout val then no timeout
 	m_fd_sets.timeout.tv_sec = 0;
@@ -423,7 +441,7 @@ bool jstd::TcpServer<QItem>::set_recv_timeout(int milli) {
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::msg_recving() {
+void jstd::net::TcpServer<QItem>::msg_recving() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "message receiving thread started");
 	uint8_t buff[MAX_BUFF_SIZE];
@@ -450,7 +468,7 @@ void jstd::TcpServer<QItem>::msg_recving() {
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::recv_data(int sockfd) {
+void jstd::net::TcpServer<QItem>::recv_data(int sockfd) {
 	LOG_TRACE(TSVR);
 	uint8_t buff[MAX_BUFF_SIZE];
 	ssize_t len = recv(sockfd, buff, MAX_BUFF_SIZE, 0);
@@ -472,14 +490,14 @@ void jstd::TcpServer<QItem>::recv_data(int sockfd) {
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::on_data(std::vector<uint8_t>&& data, const NetConnection& conn) {
+void jstd::net::TcpServer<QItem>::on_data(std::vector<uint8_t>&& data, const NetConnection& conn) {
 	LOG_DEBUG(TSVR, "building qitem for processing. A ", data.size(), " byte tcp packet");
 	auto item = build_qitem(std::move(data), conn);
 	push_qitem(item);
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::msg_processing() {
+void jstd::net::TcpServer<QItem>::msg_processing() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "message processing thread started");
 	while (m_qproc_active) {
@@ -496,7 +514,7 @@ void jstd::TcpServer<QItem>::msg_processing() {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::run() {
+bool jstd::net::TcpServer<QItem>::run() {
 	LOG_DEBUG(TSVR, "starting message receiving and item processing thread");
 	m_qproc_active = true;
 	m_recv_active = true;
@@ -506,14 +524,14 @@ bool jstd::TcpServer<QItem>::run() {
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::push_qitem(const QItem &item) {
+void jstd::net::TcpServer<QItem>::push_qitem(const QItem &item) {
 	LOG_TRACE(TSVR);
 	std::lock_guard<std::mutex> lckm(m_qmtx);
 	m_msg_queue.push(item);
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::join_threads() {
+void jstd::net::TcpServer<QItem>::join_threads() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "server is now blocking, until app termination");
 	m_recv_thread.join();
@@ -522,7 +540,7 @@ void jstd::TcpServer<QItem>::join_threads() {
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::kill_threads() {
+void jstd::net::TcpServer<QItem>::kill_threads() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "shuttdown server threads");
 	LOG_DEBUG(TSVR, "\n", m_stats, "\n");
@@ -533,7 +551,7 @@ void jstd::TcpServer<QItem>::kill_threads() {
 
 // function selects the active socket descriptor from the master sock fd list and returns it
 template<typename QItem>
-int jstd::TcpServer<QItem>::select_active_socket() {
+int jstd::net::TcpServer<QItem>::select_active_socket() {
 	LOG_TRACE(TSVR);
 	std::memcpy(&m_fd_sets.working_set, &m_fd_sets.master_set, sizeof(m_fd_sets.master_set));
 	int rc = select(m_fd_sets.max_fd+1, &m_fd_sets.working_set, nullptr, nullptr, nullptr);
@@ -548,7 +566,7 @@ int jstd::TcpServer<QItem>::select_active_socket() {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::accept_new_connection(int sockfd) {
+bool jstd::net::TcpServer<QItem>::accept_new_connection(int sockfd) {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "accepting new connections");
 	int new_sd;
@@ -574,13 +592,13 @@ bool jstd::TcpServer<QItem>::accept_new_connection(int sockfd) {
 }
 
 template<typename QItem>
-inline bool jstd::TcpServer<QItem>::_remove_client(const std::string &ipaddr, const int &port) noexcept {
+inline bool jstd::net::TcpServer<QItem>::_remove_client(const std::string &ipaddr, const int &port) noexcept {
 	std::lock_guard<std::mutex> lckm(m_cmtx);
 	return remove_client(ipaddr, port);
 }
 
 template<typename QItem>
-auto jstd::TcpServer<QItem>::lookup_client(const std::string &ipaddr, const in_port_t &port) {
+auto jstd::net::TcpServer<QItem>::lookup_client(const std::string &ipaddr, const in_port_t &port) {
 	LOG_TRACE(TSVR);
 	std::lock_guard<std::mutex> lck(m_cmtx);
 	LOG_DEBUG(TSVR, "performing client lookup with ip: ", ipaddr, " and port: ", port);
@@ -588,7 +606,7 @@ auto jstd::TcpServer<QItem>::lookup_client(const std::string &ipaddr, const in_p
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::remove_client(const std::string &ipaddr, const in_port_t &port) {
+bool jstd::net::TcpServer<QItem>::remove_client(const std::string &ipaddr, const in_port_t &port) {
 	LOG_DEBUG(TSVR, "removing client connection ipaddr: ", ipaddr, " and port: ", port);
 	std::lock_guard<std::mutex> lck(m_qmtx);
 	size_t cnt = m_client_connections.erase(hash_conn(ipaddr, port));
@@ -596,13 +614,13 @@ bool jstd::TcpServer<QItem>::remove_client(const std::string &ipaddr, const in_p
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::remove_client(const jstd::NetConnection &conn) {
+bool jstd::net::TcpServer<QItem>::remove_client(const jstd::NetConnection &conn) {
 	LOG_TRACE(TSVR);
 	return remove_client(conn.ip_addr, static_cast<const in_port_t>(conn.port));
 }
 
 template<typename QItem>
-auto jstd::TcpServer<QItem>::lookup_client(int sockfd) {
+auto jstd::net::TcpServer<QItem>::lookup_client(int sockfd) {
 	struct sockaddr_in addr = {0};
 	socklen_t len = sizeof(sockaddr_in);
 	int rc = getpeername(sockfd, (struct sockaddr*)&addr, &len);
@@ -615,14 +633,14 @@ auto jstd::TcpServer<QItem>::lookup_client(int sockfd) {
 }
 
 template<typename QItem>
-bool jstd::TcpServer<QItem>::process_select_timeout() {
+bool jstd::net::TcpServer<QItem>::process_select_timeout() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "processing select timout event!!!");
 	return true;
 }
 
 template<typename QItem>
-void jstd::TcpServer<QItem>::handle_select_error() {
+void jstd::net::TcpServer<QItem>::handle_select_error() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "handling select error...");
 }

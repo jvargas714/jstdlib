@@ -26,7 +26,16 @@ set(LIB_FILES
         jstd_util.cpp
         udp_server.h
         net_types.h
-        tcp_server.h)
+        tcp_server.h
+        CsvFileReader.h
+        CsvFileReader.cpp
+        DataProcessor.h
+        csvTypes.h
+        CsvRow.cpp
+        CsvRow.h
+        CsvDataProcessor.cpp
+        CsvDataProcessor.h
+        )
 
 if (MULTITHREADED)
     find_package(Threads REQUIRED)
