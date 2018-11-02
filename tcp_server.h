@@ -15,7 +15,9 @@
 #include <string>       // std::to_string
 #include <fcntl.h>      // fcntl()
 #include "jstd_util.h"
+#ifdef OSX
 #include <sys/filio.h>
+#endif
 #include <sys/ioctl.h>  // ioctl()
 #include <unistd.h>     // close()
 #include "net_types.h"
@@ -614,7 +616,7 @@ bool jstd::net::TcpServer<QItem>::remove_client(const std::string &ipaddr, const
 }
 
 template<typename QItem>
-bool jstd::net::TcpServer<QItem>::remove_client(const jstd::NetConnection &conn) {
+bool jstd::net::TcpServer<QItem>::remove_client(const jstd::net::NetConnection &conn) {
 	LOG_TRACE(TSVR);
 	return remove_client(conn.ip_addr, static_cast<const in_port_t>(conn.port));
 }

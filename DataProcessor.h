@@ -1,31 +1,49 @@
-#ifndef JSTD_CSVDATAPROCESSOR_H
-#define JSTD_CSVDATAPROCESSOR_H
+#ifndef _JSTDLIB_DATAPROCESSOR_H
+#define _JSTDLIB_DATAPROCESSOR_H
 #include <vector>
+#include <memory>
+
 /*
- basic interface for a Data Processor
- */
+ * jdebug :: come up with maybe a different type of data structure for m_data
+ * Generic Data Processing class:
+ *      - has a vector representing m_data to be processed
+ *      - contains a processed data  data structure
+ *      - InputDataType should be moveable
+ *      Virtual methods:
+ *          void processData()
+ * extend this class and implement processData
+ *
+ * */
 namespace jstd {
-	template<typename InputDataType, typename ProcessedDataType>
-	class DataProcessor {
-		std::vector<InputDataType> m_csvData;
-		std::shared_ptr<ProcessedDataType> m_processedData;
-	public:
-		DataProcessor() = default;
+    template<class InputDataType, class ProcessedDataType>
+    class DataProcessor {
+    protected:
+        std::vector<InputDataType> m_data;
+        ProcessedDataType m_processedData;
 
-		DataProcessor(std::vector<InputDataType> &csvData);
+    public:
+        DataProcessor() = default;
 
-		DataProcessor(std::vector<InputDataType> &&csvData);
+        DataProcessor(std::vector<InputDataType> &data);
 
-		virtual ~DataProcessor() = default;
+        DataProcessor(std::vector<InputDataType> &&data);
 
-		virtual void processData() = 0;
-	};
+        virtual ~DataProcessor() = default;
 
-	template<typename CsvRowData, typename ProcessedDataType>
-	DataProcessor<CsvRowData, ProcessedDataType>::DataProcessor(std::vector<CsvRowData> &&csvData):
-		m_csvData(std::move(csvData)) {}
+        void loadData(std::vector<InputDataType> &&data) { m_data = std::move(data); }
 
-	template<typename CsvRowData, typename ProcessedDataType>
-	DataProcessor<CsvRowData, ProcessedDataType>::DataProcessor(std::vector<CsvRowData> &csvData) {}
-}  // end namespace jstd
-#endif //JSTD_CSVDATAPROCESSOR_H
+        void loadData(std::vector<InputDataType> &data) { m_data = data; }
+
+        ProcessedDataType getProcessedData() { return m_processedData; }
+
+        virtual void processData() = 0;
+    };
+}  // namespace jstd
+template<typename InputDataType, typename ProcessedDataType>
+jstd::DataProcessor<InputDataType, ProcessedDataType>::DataProcessor(std::vector<InputDataType> &&data):
+m_data(std::move(data)) {}
+
+template<typename InputDataType, typename ProcessedDataType>
+jstd::DataProcessor<InputDataType, ProcessedDataType>::DataProcessor(std::vector<InputDataType> &data) {}
+
+#endif //_JSTDLIB_DATAPROCESSOR_H

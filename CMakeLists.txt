@@ -28,13 +28,13 @@ set(LIB_FILES
         net_types.h
         tcp_server.h
         CsvFileReader.h
-        CsvFileReader.cpp
         DataProcessor.h
         csvTypes.h
-        CsvRow.cpp
         CsvRow.h
-        CsvDataProcessor.cpp
+        csvUtil.h
         CsvDataProcessor.h
+        CsvFileWriter.h
+        DataProcessorOutput.h
         )
 
 if (MULTITHREADED)

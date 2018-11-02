@@ -1,7 +1,6 @@
 #include "net_types.h"
 #include <arpa/inet.h>
 #include "jstd_util.h"
-#include <sys/filio.h>
 #include <iostream>
 
 using namespace std;

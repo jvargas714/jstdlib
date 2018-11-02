@@ -49,7 +49,7 @@ namespace jstd {
 	template<typename QItem>
 	class UdpServer {
 		// create a hash from ip str and and port
-		std::unordered_map<uint64_t, NetConnection> m_client_connections;
+		std::unordered_map<uint64_t, jstd::net::NetConnection> m_client_connections;
 
 #ifdef MULTITHREADED_SRVR
 		std::thread m_recv_thread;
@@ -62,13 +62,13 @@ namespace jstd {
 		bool m_is_nonblocking;
 #endif
 		// listening socket
-		NetConnection m_svr_conn;
+        jstd::net::NetConnection m_svr_conn;
 
 		// broadcast mode flag
 		bool m_is_bcast;
 
 		// message counter
-		ServerStats m_stats;
+        jstd::net::ServerStats m_stats;
 
 	public:
 		// ctors
@@ -81,7 +81,7 @@ namespace jstd {
 		// adds udpclient to connection map
 		bool add_client(const std::string &ip, const uint16_t &port);
 
-		void add_client(const NetConnection &conn);
+		void add_client(const jstd::net::NetConnection &conn);
 
 		auto lookup_client(const uint64_t &hash_id, bool &found);
 
@@ -138,7 +138,7 @@ namespace jstd {
 	private:
 		virtual void _build_qitem(QItem &item, const uint8_t *buff, const ssize_t &len, const sockaddr_in &addr) const;
 
-		virtual uint64_t hash_conn(const NetConnection &conn) const;
+		virtual uint64_t hash_conn(const jstd::net::NetConnection &conn) const;
 
 		virtual uint64_t hash_conn(const std::string &ipaddr, const int &port) const;
 
@@ -168,18 +168,18 @@ jstd::UdpServer<QItem>::UdpServer()
 	m_svr_conn.sa.sin_port = htons(DEFAULT_UDP_SERVER_PORT);
 	m_svr_conn.port = DEFAULT_UDP_SERVER_PORT;
 	if (!inet_aton(LOCALHOSTIP, &m_svr_conn.sa.sin_addr)) {
-		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
+		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
 		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (m_svr_conn.sockfd < 0) {
-		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
+		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", jstd::net::sockErrToString(errno));
 		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
 	}
 	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
 	if (rc < 0) {
-		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
+		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
 		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
 	}
 #ifdef MULTITHREADED_SRVR
@@ -197,20 +197,20 @@ jstd::UdpServer<QItem>::UdpServer(const std::string &ip, const in_port_t &port)
 	m_svr_conn.sa.sin_port = htons(port);
 	m_svr_conn.port = port;
 	if (inet_aton(m_svr_conn.ip_addr.c_str(), &m_svr_conn.sa.sin_addr) == 0) {
-		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
+		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
 		sleep_milli(1000);
 		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (m_svr_conn.sockfd < 0) {
-		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
+		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", jstd::net::sockErrToString(errno));
 		sleep_milli(1000);
 		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
 	}
 	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
 	if (rc < 0) {
-		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", sockErrToString(errno));
+		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
 		sleep_milli(1000);
 		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
 	}
@@ -228,7 +228,7 @@ jstd::UdpServer<QItem>::~UdpServer() {
 }
 
 template<typename QItem>
-uint64_t jstd::UdpServer<QItem>::hash_conn(const NetConnection &conn) const {
+uint64_t jstd::UdpServer<QItem>::hash_conn(const jstd::net::NetConnection &conn) const {
 	return hash_conn(conn.ip_addr, conn.sa.sin_port);
 }
 
@@ -242,7 +242,7 @@ uint64_t jstd::UdpServer<QItem>::hash_conn(const std::string &ipaddr, const int 
 template<typename QItem>
 bool jstd::UdpServer<QItem>::add_client(const std::string &ip, const uint16_t &port) {
 	LOG_TRACE(USVR);
-	NetConnection conn;
+    jstd::net::NetConnection conn;
 	conn.ip_addr = ip;
 	conn.sock_type = SOCK_DGRAM;
 	conn.sa.sin_port = port;
@@ -258,7 +258,7 @@ bool jstd::UdpServer<QItem>::add_client(const std::string &ip, const uint16_t &p
 		          "there was an error creating sockect discriptor, eerno: #",
 		          errno,
 		          " descr: ",
-		          sockErrToString(errno));
+                  jstd::net::sockErrToString(errno));
 		return false;
 	}
 	add_client(conn);
@@ -267,7 +267,7 @@ bool jstd::UdpServer<QItem>::add_client(const std::string &ip, const uint16_t &p
 
 // add client only if not currently in map
 template<typename QItem>
-void jstd::UdpServer<QItem>::add_client(const NetConnection &conn) {
+void jstd::UdpServer<QItem>::add_client(const jstd::net::NetConnection &conn) {
 #ifdef MULTITHREADED_SRVR
 	std::lock_guard<std::mutex> lckm(m_cmtx);
 #endif
@@ -351,7 +351,7 @@ bool jstd::UdpServer<QItem>::send_item(const QItem &item) {
 		          "failed to send data, errno# ",
 		          errno,
 		          " descr: ",
-		          sockErrToString(errno));
+                  jstd::net::sockErrToString(errno));
 		return false;
 	}
 	LOG_INFO(USVR,

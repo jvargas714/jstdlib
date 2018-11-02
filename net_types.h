@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/errno.h>
+#include <sys/select.h>
 
 
 // increment udp ports by 5
@@ -153,8 +154,8 @@ namespace jstd {
 		};
 
 		struct FdSets {
-			struct fd_set working_set;
-			struct fd_set master_set;
+			fd_set working_set;
+			fd_set master_set;
 			int max_fd;
 			struct timeval timeout;
 
