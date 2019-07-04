@@ -13,7 +13,7 @@ void handle_args(int argc, char** argv) {
         std::cout << "applying default server ipaddr: " << LOCALHOSTIP << " port: " << g_port << std::endl;
     } else {
         g_ipaddr = std::string(argv[1]);
-        g_port = static_cast<uint16_t >(std::strtol(argv[2], nullptr, 10));
+        g_port = static_cast<uint16_t>(std::strtol(argv[2], nullptr, 10));
     }
 }
 
@@ -21,9 +21,9 @@ int main(int argc, char** argv) {
     handle_args(argc, argv);
     jstd::UdpServer<jstd::net::NetItem> srvr(g_ipaddr, g_port);
 //    srvr.set_recv_timeout(10);
-    srvr.set_nonblocking(true);
+    srvr.set_nonblocking(false);
     srvr.run();
     srvr.join_threads();
-    jstd::sleep_milli(5000);
+    jstd::util::sleep_milli(5000);
     return 0;
 }

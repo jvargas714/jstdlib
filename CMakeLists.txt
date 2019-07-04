@@ -31,10 +31,7 @@ set(LIB_FILES
         DataProcessor.h
         csvTypes.h
         CsvRow.h
-        csvUtil.h
         CsvDataProcessor.h
-        CsvFileWriter.h
-        DataProcessorOutput.h
         )
 
 if (MULTITHREADED)

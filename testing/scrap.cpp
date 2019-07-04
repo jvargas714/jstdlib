@@ -1,15 +1,15 @@
-#include "net_types.h"
-#include <arpa/inet.h>
-#include "jstd_util.h"
 #include <iostream>
-
+#include <fstream>
+#include <vector>
+#include <string>
 using namespace std;
 
 int main () {
-	in_addr addr;
-	addr.s_addr= -1;
-
-	cout << std::string(inet_ntoa(addr)) << endl;
+	std::string msg = "hello world how art thou";
+	std::vector<uint8_t> buff(msg.begin(), msg.end());
+	for (auto ch : buff) {
+		cout << ch << " " << endl;
+	}
     return 0;
 }
 

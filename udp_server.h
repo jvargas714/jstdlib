@@ -1,14 +1,11 @@
 #ifndef UPD_SERVER_H
 #define UPD_SERVER_H
-#include <stdlib.h>
 #include <cstdint>
 #include <iostream>
 
 #ifdef MULTITHREADED_SRVR
-
 #include <mutex>
 #include <thread>
-
 #endif
 
 #include <unordered_map>
@@ -70,11 +67,13 @@ namespace jstd {
 		// message counter
         jstd::net::ServerStats m_stats;
 
+        void init(const std::string& ipaddr, in_port_t port);
+
 	public:
 		// ctors
 		UdpServer();
 
-		UdpServer(const std::string &ip, const in_port_t &port);
+		UdpServer(const std::string &ip, in_port_t port);
 
 		~UdpServer();
 
@@ -86,7 +85,7 @@ namespace jstd {
 		auto lookup_client(const uint64_t &hash_id, bool &found);
 
 		// virtual method to process a QItem, hash_id of connection for response lookup
-		virtual bool process_item(QItem &item);
+		virtual bool process_item(const QItem &item);
 
 		virtual bool process_item(QItem &&item);
 
@@ -163,61 +162,14 @@ template<typename QItem>
 jstd::UdpServer<QItem>::UdpServer()
 	: m_qproc_active(false), m_recv_active(false), m_is_bcast(false) {
 	LOG_TRACE(USVR);
-	m_svr_conn.ip_addr = LOCALHOSTIP;
-	m_svr_conn.sock_type = SOCK_DGRAM;
-	m_svr_conn.sa.sin_port = htons(DEFAULT_UDP_SERVER_PORT);
-	m_svr_conn.port = DEFAULT_UDP_SERVER_PORT;
-	if (!inet_aton(LOCALHOSTIP, &m_svr_conn.sa.sin_addr)) {
-		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
-		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
-	}
-	m_svr_conn.sa.sin_family = AF_INET;
-	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (m_svr_conn.sockfd < 0) {
-		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", jstd::net::sockErrToString(errno));
-		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
-	}
-	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
-	if (rc < 0) {
-		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
-		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
-	}
-#ifdef MULTITHREADED_SRVR
-	m_is_nonblocking = false;
-#endif
-	LOG_INFO(USVR, "jstd::UdpServer on IP: ", m_svr_conn.ip_addr, " port: ", m_svr_conn.sa.sin_port);
+	init(LOCALHOSTIP, DEFAULT_UDP_SERVER_PORT);
 }
 
 template<typename QItem>
-jstd::UdpServer<QItem>::UdpServer(const std::string &ip, const in_port_t &port)
+jstd::UdpServer<QItem>::UdpServer(const std::string &ip, in_port_t port)
 	: m_qproc_active(false), m_recv_active(false), m_is_bcast(false) {
 	LOG_TRACE(USVR);
-	m_svr_conn.ip_addr = ip;
-	m_svr_conn.sock_type = SOCK_DGRAM;
-	m_svr_conn.sa.sin_port = htons(port);
-	m_svr_conn.port = port;
-	if (inet_aton(m_svr_conn.ip_addr.c_str(), &m_svr_conn.sa.sin_addr) == 0) {
-		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
-		sleep_milli(1000);
-		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
-	}
-	m_svr_conn.sa.sin_family = AF_INET;
-	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (m_svr_conn.sockfd < 0) {
-		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", jstd::net::sockErrToString(errno));
-		sleep_milli(1000);
-		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
-	}
-	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
-	if (rc < 0) {
-		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
-		sleep_milli(1000);
-		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
-	}
-#ifdef MULTITHREADED_SRVR
-	m_is_nonblocking = false;
-#endif
-	LOG_INFO(USVR, "udpserver with IP: ", m_svr_conn.ip_addr, " port: ", m_svr_conn.sa.sin_port);
+	init(ip, port);
 }
 
 template<typename QItem>
@@ -280,7 +232,7 @@ void jstd::UdpServer<QItem>::add_client(const jstd::net::NetConnection &conn) {
 // process item off the msg queue
 // assumes item has valid connection information
 template<typename QItem>
-bool jstd::UdpServer<QItem>::process_item(QItem &item) {
+bool jstd::UdpServer<QItem>::process_item(const QItem &item) {
 	LOG_TRACE(USVR);
 	LOG_INFO(USVR, "processing item recvd:\n", item);
 	std::stringstream ss;
@@ -290,8 +242,10 @@ bool jstd::UdpServer<QItem>::process_item(QItem &item) {
 	QItem resp;
 	resp.buff = std::vector<uint8_t>(tmp_msg.begin(), tmp_msg.end());
 	resp.conn = item.conn;
-	return send_item(resp);
+//	return send_item(resp);
+return true;
 }
+
 
 template<typename QItem>
 bool jstd::UdpServer<QItem>::process_item(QItem &&item) {
@@ -300,11 +254,12 @@ bool jstd::UdpServer<QItem>::process_item(QItem &&item) {
 	std::stringstream ss;
 	for (const auto &el : item.buff) ss << el;
 	LOG_INFO(USVR, "data recvd: ", ss.str());
-	std::string tmp_msg = "hello thanks for the message, unfortunately this Server does nothing, IMPLEMENT ME!!\n";
+	std::string tmp_msg = "hello thanks for the message, unfortunately this Server does nothing, IMPLEMENT ME!!\n\0";
 	QItem resp;
 	resp.buff = std::vector<uint8_t>(tmp_msg.begin(), tmp_msg.end());
 	resp.conn = item.conn;
-	return send_item(resp);
+	return true;
+//	return send_item(resp);
 }
 
 // process item, but perform a client lookup via hash_id
@@ -471,7 +426,7 @@ bool jstd::UdpServer<QItem>::remove_client(const std::string &ipaddr, const int 
 #ifdef MULTITHREADED_SRVR
 	std::lock_guard<std::mutex> lckm(m_cmtx);
 #endif
-	return _remove_client();
+	return _remove_client(ipaddr, port);
 }
 
 template<typename QItem>
@@ -485,7 +440,7 @@ void jstd::UdpServer<QItem>::_build_qitem(QItem &item,
 template<typename QItem>
 bool jstd::UdpServer<QItem>::set_recv_timeout(int milli) {
 	LOG_TRACE(USVR);
-	struct timeval tv;
+		struct timeval tv = {};
 	tv.tv_sec = 0;
 	tv.tv_usec = milli * 1000;
 	if (setsockopt(m_svr_conn.sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
@@ -533,7 +488,7 @@ void jstd::UdpServer<QItem>::msg_processing() {
 	LOG_TRACE(USVR);
 	LOG_DEBUG(USVR, "message processing thread started");
 	while (m_qproc_active) {
-		sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
+		util::sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
 		if (!m_msg_queue.empty()) {
 			if (process_item(std::move(m_msg_queue.front())))
 				m_stats.msg_processed_cnt++;
@@ -579,6 +534,38 @@ void jstd::UdpServer<QItem>::kill_threads() {
 	m_qproc_active = false;
 	m_recv_active = false;
 	join_threads();
+}
+
+template<typename QItem>
+void jstd::UdpServer<QItem>::init(const std::string &ip, in_port_t port) {
+	using namespace util;
+	LOG_TRACE(USVR);
+	m_svr_conn.ip_addr = ip;
+	m_svr_conn.sock_type = SOCK_DGRAM;
+	m_svr_conn.sa.sin_port = htons(port);
+	m_svr_conn.port = port;
+	if (inet_aton(m_svr_conn.ip_addr.c_str(), &m_svr_conn.sa.sin_addr) == 0) {
+		LOG_ERROR(USVR, "invalid ip address supplied errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
+		sleep_milli(1000);
+		exit(static_cast<int>(FATAL_ERR::IP_INET_FAIL));
+	}
+	m_svr_conn.sa.sin_family = AF_INET;
+	m_svr_conn.sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (m_svr_conn.sockfd < 0) {
+		LOG_ERROR(USVR, "error creating udp socket discriptor errno # ", errno, " descr: ", jstd::net::sockErrToString(errno));
+		sleep_milli(1000);
+		exit(static_cast<int>(FATAL_ERR::SOCK_FAIL));
+	}
+	int rc = bind(m_svr_conn.sockfd, (const struct sockaddr *) &m_svr_conn.sa, sizeof(m_svr_conn.sa));
+	if (rc < 0) {
+		LOG_ERROR(USVR, "binding socket to addr failed errno #", errno, " descr: ", jstd::net::sockErrToString(errno));
+		sleep_milli(1000);
+		exit(static_cast<int>(FATAL_ERR::SOCK_BIND_FAIL));
+	}
+#ifdef MULTITHREADED_SRVR
+	m_is_nonblocking = false;
+#endif
+	LOG_INFO(USVR, "udpserver with IP: ", m_svr_conn.ip_addr, " port: ", htons(m_svr_conn.sa.sin_port));
 }
 
 #endif    // THREADED REGION OF SOURCE

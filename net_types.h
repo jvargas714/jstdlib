@@ -33,7 +33,7 @@ constexpr int SOCKET_ERROR = -1;
 constexpr int SELECT_TIMEOUT = 0;
 
 // server operating parameters
-constexpr int DEFAULT_SVR_THREAD_SLEEP = 50; // in ms
+constexpr int DEFAULT_SVR_THREAD_SLEEP = 5; // in ms
 
 // max number of back logged connection requests that will be listened to
 constexpr int MAX_NUMBER_TCP_CONNECTIONS = 100;

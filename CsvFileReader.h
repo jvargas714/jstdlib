@@ -6,7 +6,7 @@
 #include <iostream>
 #include "CsvRow.h"
 #include "csvTypes.h"
-#include "csvUtil.h"
+#include "jstd_util.h"
 /*
  * Description:
  *  A simple CSV File Reader Class to read input file in chunks specified by a default MAX_BUFFER_SIZE (1MB)
@@ -78,7 +78,7 @@ namespace jstd {
                 std::fstream fstrm(m_filename);
                 std::string line;
                 if (fstrm.is_open()) {
-                    csv::util::goToLine(fstrm, m_lastLineRead + 1);
+                    util::goToLine(fstrm, m_lastLineRead + 1);
                     if (includeHeader && m_lastLineRead == NO_LINES_READ) {
                         std::getline(fstrm, line);
                         employPolicies(line);

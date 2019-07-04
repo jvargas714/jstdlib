@@ -6,6 +6,34 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <random>
+using std::string;
+using std::vector;
+using std::random_device;
+
+constexpr size_t MAX_STR_LEN = 256;
+constexpr size_t MSG_CNT = 100;
+
+
+vector<std::string> generateRandomStrMessages(size_t cnt) {
+	random_device rd;
+	vector<std::string> output;
+	for (int i = 0; i < cnt; i++) {
+		string tmp;
+		int len = rd() % MAX_STR_LEN;
+		for (int j = 0; j < len; j++) {
+			tmp += static_cast<char>(32 + (rd()%94) + 1);
+			if (rd() % 3 == 0) {
+				tmp += " ";
+			} else if (rd() % 7 == 0) {
+				tmp += "HOLA, GLACIAS!!!!!";
+			}
+		}
+		output.push_back(std::move(tmp));
+	}
+	return output;
+}
+
 /*
  * test app to test sockets on unix systems
  */
@@ -35,14 +63,17 @@ int main(int argc, char** argv) {
     char buff[1024];
     memset(buff, '\0', sizeof(buff));
     strcpy(buff, "Hello from client world!!");
+    vector<std::string> msgCnt(MSG_CNT)
+	for (int i = 0; i < MSG_CNT; i++) {
+		int64_t len = sendto(sockfd, buff, sizeof(buff), 0, (const struct sockaddr*)&sendAddr, addrLen);
+		if (len < 0) {
+			std::cout << "error sending out packet to ip: " << argv[1] << ":"
+			          << argv[2] << " errno: " << errno << std::endl;
+		} else {
+			std::cout << "successfully sent " << len << " bytes to server: "
+			          << argv[1] << ":" << argv[2] << std::endl;
+		}
+	}
 
-    int64_t len = sendto(sockfd, buff, sizeof(buff), 0, (const struct sockaddr*)&sendAddr, addrLen);
-    if (len < 0) {
-        std::cout << "error sending out packet to ip: " << argv[1] << ":"
-                                    << argv[2] << " errno: " << errno << std::endl;
-    } else {
-        std::cout << "successfully sent " << len << " bytes to server: "
-                                            << argv[1] << ":" << argv[2] << std::endl;
-    }
     return 0;
 }
