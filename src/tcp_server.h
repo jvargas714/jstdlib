@@ -1,6 +1,6 @@
 #ifndef JSTDLIB_TCP_SERVER_H
 #define JSTDLIB_TCP_SERVER_H
-#include <stdlib.h>
+#include <cstdlib>
 #include <cstdint>
 #include <iostream>
 #include <mutex>
@@ -194,7 +194,8 @@ bool jstd::net::TcpServer<QItem>::init_listen_socket() {
 		return false;
 	}
 	// default TIME OUT
-	set_recv_timeout(DEFAULT_TCP_RECV_TIMEOUT_MILLI);
+//	set_recv_timeout(DEFAULT_TCP_RECV_TIMEOUT_MILLI);
+set_recv_timeout(0);
 	return true;
 }
 
@@ -256,14 +257,12 @@ jstd::net::TcpServer<QItem>::~TcpServer() {
 
 template<typename QItem>
 uint64_t jstd::net::TcpServer<QItem>::hash_conn(const NetConnection &conn) const {
-	std::hash<int> hasher;
-	return hasher(conn.sockfd);
+	return std::hash<int>{}(conn.sockfd);
 }
 
 template<typename QItem>
 uint64_t jstd::net::TcpServer<QItem>::hash_conn(const std::string &ipaddr, const int &port) const {
-	std::hash<std::string> hasher;
-	return hasher(ipaddr + std::to_string(port));
+	return std::hash<std::string>{}(ipaddr + std::to_string(port));
 }
 
 template<typename QItem>

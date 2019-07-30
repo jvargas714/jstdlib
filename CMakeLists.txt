@@ -1,9 +1,27 @@
 cmake_minimum_required(VERSION 3.12)
 project(jstdLib)
 
+# todo :: eventually create a release configuration
+
+set(BUILD_MODE DEBUG)
 set(MULTITHREADED ON)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
+
+# set appropriate compiler flags
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    message("COMPILER SELECTED: CLANG")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wextra -pedantic")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    message("COMPILER SELECTED: APPLE CLANG")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wextra -pedantic")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    message("COMPILER SELECTED: GCC")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -Wall -Wextra -pedantic")
+else()
+    message("${CMAKE_CXX_COMPILER_ID}")
+    error("UNKNOWN COMPILER, exiting")
+endif()
 
 # system OS identification
 if (UNIX)
@@ -21,44 +39,14 @@ else()
     message("building target for unknown system")
 endif()
 
-set(LIB_FILES
-        jstd_util.h
-        jstd_util.cpp
-        udp_server.h
-        net_types.h
-        tcp_server.h
-        CsvFileReader.h
-        DataProcessor.h
-        csvTypes.h
-        CsvRow.h
-        CsvDataProcessor.h
-        )
-
 if (MULTITHREADED)
-    find_package(Threads REQUIRED)
-    message("building target with multithreaded support")
     add_definitions(-DMULTITHREADED_SRVR)
 endif()
 
-add_library(jstdlib SHARED ${LIB_FILES})
-set_target_properties(jstdlib PROPERTIES LINKER_LANGUAGE CXX)
+# output dirs
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-# -------------------- test executables -------------------------------------
-add_executable(testUdpServer testing/testUdpServer.cpp)
-add_executable(testUdpClient testing/testUdpClient.cpp)
-
-add_executable(testUdpServerApp testing/testUdpServerApp.cpp)
-target_include_directories(testUdpServerApp PUBLIC ./)
-link_directories(./)
-if (MULTITHREADED)
-    target_link_libraries(testUdpServerApp jstdlib Threads::Threads)
-else( )
-    target_link_libraries(testUdpServerApp jstdlib)
-endif( )
-
-add_executable(testTcpServerApp testing/testTcpServerApp.cpp)
-target_include_directories(testTcpServerApp PUBLIC ./)
-target_link_libraries(testTcpServerApp jstdlib Threads::Threads)
-
-add_executable(scrap testing/scrap.cpp)
-target_include_directories(scrap PUBLIC ./)
+add_subdirectory(./src)
+add_subdirectory(./testing)
