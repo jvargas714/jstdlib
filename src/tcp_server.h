@@ -187,12 +187,12 @@ bool jstd::net::TcpServer<QItem>::init_listen_socket() {
 		return false;
 	}
 	// set socket to non-blocking
-	rc = ioctl(m_svr_conn.sockfd, FIONBIO, (char *)&on);
-	if (rc < 0) {
-		LOG_ERROR(TSVR, "ioctl() failed");
-		close(m_svr_conn.sockfd);
-		return false;
-	}
+//	rc = ioctl(m_svr_conn.sockfd, FIONBIO, (char *)&on);
+//	if (rc < 0) {
+//		LOG_ERROR(TSVR, "ioctl() failed");
+//		close(m_svr_conn.sockfd);
+//		return false;
+//	}
 	// default TIME OUT
 //	set_recv_timeout(DEFAULT_TCP_RECV_TIMEOUT_MILLI);
 set_recv_timeout(0);
