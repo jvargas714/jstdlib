@@ -449,6 +449,7 @@ void jstd::net::TcpServer<QItem>::msg_recving() {
 	ssize_t len = 0;
 	sockaddr_in from_addr = {0};
 	socklen_t addr_len = sizeof(sockaddr_in);
+	m_fd_sets.add_fd(m_svr_conn.sockfd);
 	FD_ZERO(&m_fd_sets.master_set);
 	FD_SET(m_svr_conn.sockfd, &m_fd_sets.master_set);
 	m_fd_sets.max_fd = m_svr_conn.sockfd;
