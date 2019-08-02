@@ -61,7 +61,7 @@ namespace jstd {
 			std::mutex m_cmtx;
 			bool m_qproc_active;
 			bool m_recv_active;
-			FdSets m_fd_sets;
+			fd_sets m_fd_sets;   	// read sets
 
 			// listening socket
 			NetConnection m_svr_conn;
@@ -151,7 +151,7 @@ namespace jstd {
 
 			void push_qitem(const QItem &item);
 
-			int select_active_socket();
+			std::vector<int> select_active_sockets();
 
 			bool accept_new_connection(int sockfd);
 
@@ -435,8 +435,7 @@ template<typename QItem>
 bool jstd::net::TcpServer<QItem>::set_recv_timeout(int milli) {
 	LOG_TRACE(TSVR);
 	// if zero timeout val then no timeout
-	m_fd_sets.timeout.tv_sec = 0;
-	m_fd_sets.timeout.tv_usec = milli * 1000;
+	m_fd_sets.set_timeout_ms(milli);
 	LOG_DEBUG(TSVR, "set recv timeout to ", milli, "msec");
 	return true;
 }
@@ -455,15 +454,17 @@ void jstd::net::TcpServer<QItem>::msg_recving() {
 	m_fd_sets.max_fd = m_svr_conn.sockfd;
 	int sockfd;
 	while (m_recv_active) {
-		sockfd = select_active_socket();
-		if (sockfd == m_svr_conn.sockfd) // listener socket is active
-			accept_new_connection(sockfd);
-		else if (sockfd == SELECT_TIMEOUT)
-			process_select_timeout();
-		else if (sockfd == SOCKET_ERROR)
-			handle_select_error();
-		else
-			recv_data(sockfd);
+		std::vector<int> active_sockfds = select_active_sockets();
+		for (const auto sockfd : active_sockfds) {
+			if (sockfd == m_svr_conn.sockfd) // listener socket is active
+				accept_new_connection(sockfd);
+			else if (sockfd == SELECT_TIMEOUT)
+				process_select_timeout();
+			else if (sockfd == SOCKET_ERROR)
+				handle_select_error();
+			else
+				recv_data(sockfd);
+		}
 	}
 	LOG_DEBUG(TSVR, "exiting message recv thread...");
 }
@@ -552,10 +553,11 @@ void jstd::net::TcpServer<QItem>::kill_threads() {
 
 // function selects the active socket descriptor from the master sock fd list and returns it
 template<typename QItem>
-int jstd::net::TcpServer<QItem>::select_active_socket() {
+std::vector<int> jstd::net::TcpServer<QItem>::select_active_sockets() {
 	LOG_TRACE(TSVR);
-	std::memcpy(&m_fd_sets.working_set, &m_fd_sets.master_set, sizeof(m_fd_sets.master_set));
+	m_fd_sets.working_set = m_fd_sets.master_set;
 	int rc = select(m_fd_sets.max_fd+1, &m_fd_sets.working_set, nullptr, nullptr, nullptr);
+	LOG_DEBUG(TSVR, "return val: ", rc);
 	if (rc == SOCKET_ERROR) return SOCKET_ERROR;
 	if (rc == 0) return SELECT_TIMEOUT;
 	for (int i = 0; i < m_fd_sets.max_fd; i++) {
@@ -569,7 +571,6 @@ int jstd::net::TcpServer<QItem>::select_active_socket() {
 template<typename QItem>
 bool jstd::net::TcpServer<QItem>::accept_new_connection(int sockfd) {
 	LOG_TRACE(TSVR);
-	LOG_DEBUG(TSVR, "accepting new connections");
 	int new_sd;
 	int cnt = 0;
 	NetConnection new_conn;
@@ -642,8 +643,7 @@ bool jstd::net::TcpServer<QItem>::process_select_timeout() {
 
 template<typename QItem>
 void jstd::net::TcpServer<QItem>::handle_select_error() {
-	LOG_TRACE(TSVR);
-	LOG_DEBUG(TSVR, "handling select error...");
+	LOG_WARNING(TSVR, "handling select error...errono: ", errno);
 }
 
 #endif //JSTDLIB_TCP_SERVER_H

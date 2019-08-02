@@ -10,6 +10,8 @@ set(LIB_FILES
         csvTypes.h
         CsvRow.h
         CsvDataProcessor.h
+        fd_sets.h
+        fd_sets.cpp
         )
 
 if (MULTITHREADED)

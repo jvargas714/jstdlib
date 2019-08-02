@@ -153,15 +153,6 @@ namespace jstd {
 				addr_len(sizeof(sockaddr_in)) {}
 		};
 
-		struct FdSets {
-			fd_set working_set;
-			fd_set master_set;
-			int max_fd;
-			struct timeval timeout;
-
-			FdSets() : max_fd(0), working_set{0}, master_set{0}, timeout{0} {};
-		};
-
 		// std item to hold a buffer
 		// contains socket information for easy usage
 		// id :: identifies type of message being sent out || or hash_id

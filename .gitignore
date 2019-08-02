@@ -2,3 +2,9 @@
 cmake-build-debug/
 bin/
 lib/
+build/
+CMakeFiles/
+cmake_install.cmake
+Makefile
+settings.json
+CMakeCache.txt
