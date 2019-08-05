@@ -4,6 +4,9 @@
 #include <sys/errno.h>
 #include <sys/time.h>
 
+/*
+    todo :: later expand this to take write_fds as well 
+ */
 class fd_sets {
     private:
         fd_set working_set;		// set that is currently being processed 
@@ -17,6 +20,10 @@ class fd_sets {
         // back up master
         void set_working_set();
 
+        // wrapper around select()
+        int select_set(bool readfds=true);
+
+
         // return vector containing active fds from working set 
         // returns empty vector if none are active 
         std::vector<int> get_active_fds() const;
@@ -28,7 +35,7 @@ class fd_sets {
         void clear();
 
         // set timeout in millisecs
-        void fd_sets::set_timeout_ms(long millisecs);
+        void set_timeout_ms(long millisecs);
 
 };
 

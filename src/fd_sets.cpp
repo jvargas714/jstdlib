@@ -1,16 +1,26 @@
-#include "fd_sets.h"
 #include <algorithm>
 #include <climits>
+#include <arpa/inet.h>
+#include <sys/select.h>
+#include "fd_sets.h"
+#include "net_types.h"
+#include "logger.h"
+
+#define GEN LOG_MODULE::GENERAL
 
 
 fd_sets::fd_sets(): max_fd(0), working_set{0}, master_set{0}, timeout{0} {};
 
 std::vector<int> fd_sets::get_active_fds() const {
     std::vector<int> fds;
-    for (int fd = 0; fd < max_fd; fd++) {
-        if (FD_ISSET(fd, &working_set))
+    // std::cout << "MAX FD: " << max_fd << std::endl;
+    for (int fd = 0; fd <= max_fd; fd++) {
+        if (FD_ISSET(fd, &working_set)) {
+            LOG_DEBUG(GEN, "adding active fd: ", fd);
             fds.push_back(fd);
+        }
     }
+    LOG_DEBUG(GEN, "returning ", fds.size(), " active sockets");
     return fds;
 }
 
@@ -21,6 +31,7 @@ void fd_sets::clear() {
 }
 
 void fd_sets::set_working_set() {
+    FD_ZERO(&working_set);
     working_set = master_set;
 }
 
@@ -41,9 +52,21 @@ void fd_sets::set_timeout_ms(long millisecs) {
         timeout.tv_sec = 0;
         timeout.tv_usec = millisecs * 1000;
     }
-    for (int fd = 0; fd < max_fd; fd++) {
-        
-    }
+}
 
+int fd_sets::select_set(bool readfds) {
+    if (readfds)
+        return select(max_fd+1, 
+        &working_set, 
+        NULL, 
+        NULL,
+        NULL);
+        // ((timeout.tv_sec == 0 && timeout.tv_usec == 0) ? nullptr:&timeout));
+    else 
+        return select(max_fd+1, 
+        NULL, 
+        &working_set, 
+        NULL,
+        &timeout);
 }
 

@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
 	const socklen_t addrLen = sizeof(sockaddr_in);
 	sendAddr.sin_family = AF_INET;
 	cout << "attempting to connect to " << argv[1] << ":" << argv[2] << endl;
-	sendAddr.sin_port = (uint16_t)std::strtol(argv[2], nullptr, 10);
-	sendAddr.sin_port = htons((uint16_t)sendAddr.sin_port);
+	uint16_t port = (uint16_t)std::strtol(argv[2], nullptr, 10);
+	sendAddr.sin_port = htons((uint16_t)port);
 	std::cout << "sending to port: " << sendAddr.sin_port << std::endl;
 	if(!inet_aton(argv[1], &sendAddr.sin_addr)) {
 		std::cout << "invalid ip addr: " << argv[1] << " provided, aborting :(" << std::endl;
@@ -65,6 +65,8 @@ int main(int argc, char* argv[]) {
 	string pref;
 	uint64_t numBytes = 0;
 	int rc = 0;
+	cout << "ready to send data (y/n)?" << endl;
+	cin >> resp;
 	while (resp == 'y') {
 		cout << "send one or many messages (one, many)" << endl;
 		cin >> pref;

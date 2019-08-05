@@ -24,5 +24,8 @@ else()
     target_link_libraries(testTcpServerApp jstdlib)
 endif()
 
+# other test files
+add_executable(testTcpServer testTcpServer.cpp)
+
 add_executable(scrap scrap.cpp)
 #target_include_directories(scrap PUBLIC ./)

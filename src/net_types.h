@@ -55,6 +55,7 @@ enum class SERVER_TYPE {
 namespace jstd {
 	namespace net {
 #ifdef LINUX_OS
+		// error codes for recv, accept, listen, bind, and send
 		std::string sockErrToString(int32_t type) {
 			switch (type) {
 				case EACCES:
@@ -72,8 +73,37 @@ namespace jstd {
 					return "Insufficient memory is available.  The socket cannot be created until sufficient resources are freed";
 				case EPROTONOSUPPORT:
 					return "The protocol type or the specified protocol is not supported within this domain";
+				case EBADF:
+					return "the descriptor is bad";
+				case EAGAIN:
+					return "The socket is marked nonblocking and no connections are present to be accepted";
+				case ECONNABORTED:
+					return "a connection has been aborted";
+				case EFAULT:
+					return "the addr argument is not in a writable part of the user address space";
+				case EINTR:
+					return "system call was interrupted by a signal";
+				case EPROTO:
+					return "protocol error";
+				case EPERM:
+					return "firewall rules forbid connection";
 				default:
 					return "Error type unknown";
+			}
+		}
+
+		std::string selectErrToString(int32_t err) {
+			switch(err) {
+				case EBADF:
+					return "invalid file descriptor was given in one of the sets";
+				case EINTR:
+					return "a signal was caught";
+				case EINVAL:
+					return "nfds is negative or exceeds the RLIMIT_NOFILE resource limit";
+				case ENOMEM:
+					return "unable to allocate memory for internal tables";
+				default:
+					return "unknown error code";
 			}
 		}
 #else // macosx

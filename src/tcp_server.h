@@ -21,6 +21,7 @@
 #include <sys/ioctl.h>  // ioctl()
 #include <unistd.h>     // close()
 #include "net_types.h"
+#include "fd_sets.h"
 
 /*
  * Description:
@@ -44,6 +45,8 @@
 
  ISSUES:
  todo :: having issues with the timeout value set to other than nullptr
+ todo :: key sockets to connection information off of the sockfd in fd_sets
+ todo :: must process recvd datam still not quite there
  */
 #define TSVR LOG_MODULE::TCPSERVER
 
@@ -186,7 +189,7 @@ bool jstd::net::TcpServer<QItem>::init_listen_socket() {
 		close(m_svr_conn.sockfd);
 		return false;
 	}
-	// set socket to non-blocking
+	// set listening socket to non-blocking
 //	rc = ioctl(m_svr_conn.sockfd, FIONBIO, (char *)&on);
 //	if (rc < 0) {
 //		LOG_ERROR(TSVR, "ioctl() failed");
@@ -195,7 +198,8 @@ bool jstd::net::TcpServer<QItem>::init_listen_socket() {
 //	}
 	// default TIME OUT
 //	set_recv_timeout(DEFAULT_TCP_RECV_TIMEOUT_MILLI);
-set_recv_timeout(0);
+	set_recv_timeout(0);
+	m_fd_sets.add_fd(m_svr_conn.sockfd);
 	return true;
 }
 
@@ -295,9 +299,10 @@ bool jstd::net::TcpServer<QItem>::add_client(const std::string &ip, const uint16
 template<typename QItem>
 void jstd::net::TcpServer<QItem>::add_client(const NetConnection &conn) {
 	std::lock_guard<std::mutex> lckm(m_cmtx);
-	LOG_DEBUG(TSVR, "adding new client with ip: ", conn.ip_addr, " port: ", conn.port);
+	LOG_DEBUG(TSVR, "adding new client with ip: ", conn.ip_addr, " port: ", htons(conn.port));
 	m_client_connections[hash_conn(conn)] = conn;
 	m_stats.clients_added_cnt++;
+	m_fd_sets.add_fd(conn.sockfd);
 }
 
 // process item off the msg queue
@@ -435,7 +440,7 @@ template<typename QItem>
 bool jstd::net::TcpServer<QItem>::set_recv_timeout(int milli) {
 	LOG_TRACE(TSVR);
 	// if zero timeout val then no timeout
-	m_fd_sets.set_timeout_ms(milli);
+	// m_fd_sets.set_timeout_ms(milli);
 	LOG_DEBUG(TSVR, "set recv timeout to ", milli, "msec");
 	return true;
 }
@@ -450,12 +455,9 @@ void jstd::net::TcpServer<QItem>::msg_recving() {
 	sockaddr_in from_addr = {0};
 	socklen_t addr_len = sizeof(sockaddr_in);
 	m_fd_sets.add_fd(m_svr_conn.sockfd);
-	FD_ZERO(&m_fd_sets.master_set);
-	FD_SET(m_svr_conn.sockfd, &m_fd_sets.master_set);
-	m_fd_sets.max_fd = m_svr_conn.sockfd;
-	int sockfd;
 	while (m_recv_active) {
 		std::vector<int> active_sockfds = select_active_sockets();
+		std::cout << "num active sockets: " << active_sockfds.size() << std::endl; 
 		for (const auto sockfd : active_sockfds) {
 			if (sockfd == m_svr_conn.sockfd) // listener socket is active
 				accept_new_connection(sockfd);
@@ -556,39 +558,42 @@ void jstd::net::TcpServer<QItem>::kill_threads() {
 template<typename QItem>
 std::vector<int> jstd::net::TcpServer<QItem>::select_active_sockets() {
 	LOG_TRACE(TSVR);
-	m_fd_sets.working_set = m_fd_sets.master_set;
-	int rc = select(m_fd_sets.max_fd+1, &m_fd_sets.working_set, nullptr, nullptr, nullptr);
+	m_fd_sets.set_working_set();
+	int rc = m_fd_sets.select_set();
 	LOG_DEBUG(TSVR, "return val: ", rc);
-	if (rc == SOCKET_ERROR) return SOCKET_ERROR;
-	if (rc == 0) return SELECT_TIMEOUT;
-	for (int i = 0; i < m_fd_sets.max_fd; i++) {
-		if (FD_ISSET(i, &m_fd_sets.working_set)) {
-			return i;
-		}
+	if (rc < 0) {
+		LOG_WARNING(TSVR, "there was a error on select errno-> ", selectErrToString(errno));
+		return {SOCKET_ERROR};
 	}
-	return SOCKET_ERROR;
+	else if (rc == SELECT_TIMEOUT) {
+		LOG_WARNING(TSVR, "select call timed out");
+		return {SELECT_TIMEOUT};
+	}
+	else {
+		return m_fd_sets.get_active_fds();
+	}
 }
 
 template<typename QItem>
 bool jstd::net::TcpServer<QItem>::accept_new_connection(int sockfd) {
 	LOG_TRACE(TSVR);
-	int new_sd;
 	int cnt = 0;
-	NetConnection new_conn;
 	while(true) {
-		new_sd = accept(sockfd, (struct sockaddr*)&new_conn.sa, &new_conn.addr_len);
-		if (new_sd != SOCKET_ERROR) {
+		NetConnection new_conn;
+		LOG_DEBUG(TSVR, "accepting new connection");
+		int new_fd = accept(sockfd, (struct sockaddr*)&new_conn.sa, &new_conn.addr_len);
+		if (new_fd != SOCKET_ERROR) {
 			new_conn.ip_addr = std::string(inet_ntoa(new_conn.sa.sin_addr));
 			new_conn.port = ntohl(new_conn.sa.sin_port);
-			new_conn.sockfd = sockfd;
+			new_conn.sockfd = new_fd;
 			new_conn.sock_type = SOCK_STREAM;
-			FD_SET(new_sd, &m_fd_sets.master_set);
-			if (new_sd > m_fd_sets.max_fd)
-				m_fd_sets.max_fd = new_sd;
+			m_fd_sets.add_fd(new_fd);
 			add_client(new_conn);
 			cnt++;
-		} else
+		} else {
+			LOG_WARNING(TSVR, "there was an error accepting connection --> ", sockErrToString(errno));
 			break;
+		}
 	}
 	LOG_DEBUG(TSVR, "added ", cnt, " new connections");
 	return cnt>0;
