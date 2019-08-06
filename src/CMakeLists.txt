@@ -12,6 +12,11 @@ set(LIB_FILES
         CsvDataProcessor.h
         fd_sets.h
         fd_sets.cpp
+        IPAddress.cpp
+        IPAddress.h
+        TcpSocket.h
+        TcpSocket.cpp
+        net_exceptions.h
         )
 
 if (MULTITHREADED)

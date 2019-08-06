@@ -18,7 +18,8 @@ using std::cerr;
 using std::endl;
 
 int main() {
-    sockaddr_in listenAddr = {0, 0};
+    sockaddr_in listenAddr;
+    std::memset(&listenAddr, 0, sizeof(sockaddr_in));
     listenAddr.sin_port = htons(port);
     listenAddr.sin_family = AF_INET;
     listenAddr.sin_addr.s_addr = inet_addr(ipaddr);
@@ -48,11 +49,11 @@ int main() {
 
     // process stuff
     while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+//        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         FD_ZERO(&working_set);
         working_set = master_set;
         int n = select(max_fd+1, &working_set, NULL, NULL, NULL);
-        cout << "sock cnt: " << n << endl;
+        cout << "active sock cnt: " << n << endl;
         if (n < 0) {
             cerr << "error occurred on select call" << endl;
         } else if (n == 0) {
@@ -78,16 +79,18 @@ int main() {
                         if (rc < 0) {
                             cerr << "error on recv errno: " << errno << endl;
                             exit(130);
+                        } else if (rc == 0) {
+                            // disconnected close socket
+                            FD_CLR(fd, &master_set);
                         } else {
-                            cout << "read " << rc << " bytes" << endl;
-                            cout << "data: " << buff << endl;
+                                cout << "read " << rc << " bytes" << endl;
+                                cout << "data: " << buff << endl;
                         }
                     }
                 }
             }
         }
     }
-
     return 0;
 }
 #pragma clang diagnostic pop

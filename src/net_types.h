@@ -38,22 +38,28 @@ constexpr int DEFAULT_SVR_THREAD_SLEEP = 5; // in ms
 // max number of back logged connection requests that will be listened to
 constexpr int MAX_NUMBER_TCP_CONNECTIONS = 100;
 
-// fatal error exit codes
-enum class FATAL_ERR {
-    SOCK_FAIL = -10,
-    IP_INET_FAIL,
-    SOCK_BIND_FAIL,
-    SOCK_LISTEN_FAIL,
-    SOCKOPT_FAIL
-};
-
-enum class SERVER_TYPE {
-    SINGLE_THREADED,
-    MULTITHREADED
-};
-
 namespace jstd {
 	namespace net {
+
+        // fatal error exit codes
+        enum class FATAL_ERR {
+            SOCK_FAIL = -10,
+            IP_INET_FAIL,
+            SOCK_BIND_FAIL,
+            SOCK_LISTEN_FAIL,
+            SOCKOPT_FAIL
+        };
+
+        enum class SERVER_TYPE {
+            SINGLE_THREADED,
+            MULTITHREADED
+        };
+
+        enum class PROTOCOL {
+            TCP,
+            UDP
+        };
+
 #ifdef LINUX_OS
 		// error codes for recv, accept, listen, bind, and send
 		std::string sockErrToString(int32_t type) {
@@ -175,7 +181,7 @@ namespace jstd {
 			                  sockfd(INVALID_SOCKET),
 			                  addr_len(sizeof(sockaddr_in)) {}
 
-			NetConnection(const NetConnection &conn) :
+			NetConnection(const NetConnection &conn):
 				ip_addr(conn.ip_addr),
 				sa(conn.sa),
 				sock_type(conn.sock_type),
@@ -198,7 +204,7 @@ namespace jstd {
 
 			~NetItem() = default;
 
-			inline std::vector<uint8_t> serialize() const {
+			virtual inline std::vector<uint8_t> serialize() const {
 				return buff;
 			}
 

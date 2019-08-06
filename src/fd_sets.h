@@ -5,7 +5,7 @@
 #include <sys/time.h>
 
 /*
-    todo :: later expand this to take write_fds as well 
+    todo :: later expand this to take write_fds as well
  */
 class fd_sets {
     private:
@@ -36,6 +36,9 @@ class fd_sets {
 
         // set timeout in millisecs
         void set_timeout_ms(long millisecs);
+
+        // remove descriptor from the master set
+        void clear_fd(int fd);
 
 };
 

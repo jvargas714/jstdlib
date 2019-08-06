@@ -70,3 +70,7 @@ int fd_sets::select_set(bool readfds) {
         &timeout);
 }
 
+void fd_sets::clear_fd(int fd) {
+    FD_CLR(fd, &master_set);
+}
+

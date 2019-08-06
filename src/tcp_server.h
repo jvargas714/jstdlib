@@ -47,6 +47,9 @@
  todo :: having issues with the timeout value set to other than nullptr
  todo :: key sockets to connection information off of the sockfd in fd_sets
  todo :: must process recvd datam still not quite there
+ todo :: implement broadcast capability
+ todo :: create TcpSocket Class to abstract away socket API
+ todo :: create Client Manager class to manage connected clients
  */
 #define TSVR LOG_MODULE::TCPSERVER
 
@@ -198,7 +201,6 @@ bool jstd::net::TcpServer<QItem>::init_listen_socket() {
 //	}
 	// default TIME OUT
 //	set_recv_timeout(DEFAULT_TCP_RECV_TIMEOUT_MILLI);
-	set_recv_timeout(0);
 	m_fd_sets.add_fd(m_svr_conn.sockfd);
 	return true;
 }
@@ -486,6 +488,7 @@ void jstd::net::TcpServer<QItem>::recv_data(int sockfd) {
 		on_data(std::vector<uint8_t>(buff, buff + len), conn_entry->second);
 	} else if (len == 0) {
 		LOG_DEBUG(TSVR, "connection has been closed by client");
+		m_fd_sets.clear_fd(sockfd);
 	} else if (len == SOCKET_ERROR) {
 		LOG_ERROR(TSVR, "an error occured receiving data :( errno: ", errno, " descr: ", sockErrToString(errno));
 	}
