@@ -17,6 +17,8 @@ set(LIB_FILES
         TcpSocket.h
         TcpSocket.cpp
         net_exceptions.h
+        BigInt.cpp
+        BigInt.h
         )
 
 if (MULTITHREADED)

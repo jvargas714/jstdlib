@@ -32,7 +32,7 @@ namespace jstd {
             friend std::ostream &operator<<(std::ostream &os, const IPAddress &ipaddr);
         };
 
-        std::ostream &operator<<(std::ostream &os, const IPAddress &ipaddr) {
+        inline std::ostream &operator<<(std::ostream &os, const IPAddress &ipaddr) {
             os << ipaddr.to_string();
             return os;
         }

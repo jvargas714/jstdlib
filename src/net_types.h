@@ -62,7 +62,7 @@ namespace jstd {
 
 #ifdef LINUX_OS
 		// error codes for recv, accept, listen, bind, and send
-		std::string sockErrToString(int32_t type) {
+		inline std::string sockErrToString(int32_t type) {
 			switch (type) {
 				case EACCES:
 					return "Permission to create socket of the specified type is denied";
@@ -98,7 +98,7 @@ namespace jstd {
 			}
 		}
 
-		std::string selectErrToString(int32_t err) {
+		inline std::string selectErrToString(int32_t err) {
 			switch(err) {
 				case EBADF:
 					return "invalid file descriptor was given in one of the sets";
@@ -159,7 +159,7 @@ namespace jstd {
 			}
 		};
 
-		std::ostream &operator<<(std::ostream &os, const ServerStats &stats) {
+		inline std::ostream &operator<<(std::ostream &os, const ServerStats &stats) {
 			os << stats.to_string();
 			return os;
 		}
@@ -217,9 +217,11 @@ namespace jstd {
 				ss << "buff size: " << buff.size();
 				return ss.str();
 			}
+
+			friend std::ostream& operator << (std::ostream&, const struct NetItem& item);
 		};
 
-		std::ostream &operator<<(std::ostream &os, const NetItem &ni) {
+		inline std::ostream &operator << (std::ostream &os, const struct NetItem &ni) {
 			os << ni.to_string();
 			return os;
 		}
