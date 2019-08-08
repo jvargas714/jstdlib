@@ -33,6 +33,28 @@ IPAddress::IPAddress(uint32_t ip): ip_byte(ip) {
     m_hostname = "";
 }
 
-uint32_t IPAddress::operator()() const {
-    return ip_byte;
+IPAddress::IPAddress(const IPAddress &ipaddr) {
+    m_hostname = ipaddr.m_hostname;
+    ip_byte = ipaddr.ip_byte;
+    ip_str = ipaddr.ip_str;
+}
+
+IPAddress::IPAddress(IPAddress &&ipaddr) noexcept {
+    m_hostname = std::move(ipaddr.m_hostname);
+    ip_byte = ipaddr.ip_byte;
+    ip_str = std::move(ipaddr.ip_str);
+}
+
+IPAddress &IPAddress::operator=(const IPAddress &ipaddr) noexcept {
+    m_hostname = ipaddr.m_hostname;
+    ip_byte = ipaddr.ip_byte;
+    ip_str = ipaddr.ip_str;
+    return *this;
+}
+
+IPAddress &IPAddress::operator=(IPAddress &&ipaddr) noexcept {
+    m_hostname = std::move(ipaddr.m_hostname);
+    ip_byte = ipaddr.ip_byte;
+    ip_str = std::move(ipaddr.ip_str);
+    return *this;
 }

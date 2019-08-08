@@ -26,6 +26,10 @@ namespace jstd {
         public:
             TcpSocket() = delete;
             explicit TcpSocket(std::string ipstr, int port);
+            TcpSocket(const TcpSocket&) = delete;
+            TcpSocket(TcpSocket&&) = delete;
+            TcpSocket& operator = (const TcpSocket& sock) noexcept;
+            TcpSocket& operator = (TcpSocket&& sock) noexcept;
             virtual ~TcpSocket() = default;
 
             // return socket address info associated with this socket
@@ -45,8 +49,8 @@ namespace jstd {
             bool listen(int backlog=MAX_NUMBER_TCP_CONNECTIONS);
 
             // send vector of data, must be in a connected state
-            int send(const std::vector<uint8_t>& data);
-            int send(const std::vector<uint8_t>&& data);
+            int send(const std::vector<uint8_t>& data, int flags=0);
+            int send(std::vector<uint8_t>&& data, int flags=0);
 
             // recv and return vector of data (by default BLOCKING)
             std::vector<uint8_t> recv(const std::shared_ptr<TcpSocket>& from, int flags=0) const;

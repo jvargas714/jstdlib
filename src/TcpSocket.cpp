@@ -5,7 +5,7 @@
 using namespace jstd::net;
 
 static sockaddr_in set_addr(const IPAddress& ipaddr, int port) {
-    sockaddr_in addr;
+    sockaddr_in addr{};
     addr.sin_port = htons(port);
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = ipaddr();
@@ -13,12 +13,12 @@ static sockaddr_in set_addr(const IPAddress& ipaddr, int port) {
 }
 
 TcpSocket::TcpSocket(std::string ipstr, int port)  :
-m_ipaddr(ipstr),
+m_ipaddr(std::move(ipstr)),
 m_port(port),
+m_addr{},
 m_bound(false),
 m_connected(false),
 m_listening(false) {
-    std::memset(&m_addr, 0, sizeof(sockaddr_in));
     m_addr.sin_addr.s_addr = m_ipaddr();
     m_addr.sin_family = AF_INET;
     m_addr.sin_port = htons(port);
@@ -68,12 +68,22 @@ bool TcpSocket::listen(int backlog) {
     return true;
 }
 
-int TcpSocket::send(const std::vector<uint8_t> &data) {
-    return 0;
+int TcpSocket::send(const std::vector<uint8_t> &data, int flags) {
+    if (!m_connected) throw SocketSendingError("Socket is not connected");
+    int n = ::send(m_sockfd, data.data(), data.size(), flags);
+    if (n < 0) {
+        throw SocketSendingError("there was an error sending data, errno: " + std::to_string(errno));
+    }
+    return n;
 }
 
-int TcpSocket::send(const std::vector<uint8_t> &&data) {
-    return 0;
+int TcpSocket::send(std::vector<uint8_t> &&data, int flags) {
+    if (!m_connected) throw SocketSendingError("Socket is not connected");
+    int n = ::send(m_sockfd, data.data(), data.size(), flags);
+    if (n < 0) {
+        throw SocketSendingError("there was an error sending data, errno: " + std::to_string(errno));
+    }
+    return n;
 }
 
 std::vector<uint8_t> TcpSocket::recv(const std::shared_ptr<TcpSocket>& from, int flags) const {
@@ -88,5 +98,51 @@ std::vector<uint8_t> TcpSocket::recv(const std::shared_ptr<TcpSocket>& from, int
     return buff;
 }
 
+TcpSocket &TcpSocket::operator=(const TcpSocket &sock) noexcept {
+    m_addr = sock.m_addr;
+    m_port = sock.m_port;
+    m_bound = sock.m_bound;
+    m_connected = sock.m_connected;
+    m_bound = sock.m_bound;
+    m_ipaddr = sock.m_ipaddr;
+    m_listening = sock.m_listening;
+    m_sockfd = sock.m_sockfd;
+    return *this;
+}
 
+TcpSocket &TcpSocket::operator=(TcpSocket &&sock) noexcept {
+    m_addr = sock.m_addr;
+    m_port = sock.m_port;
+    m_bound = sock.m_bound;
+    m_connected = sock.m_connected;
+    m_bound = sock.m_bound;
+    m_ipaddr = std::move(sock.m_ipaddr);
+    m_listening = sock.m_listening;
+    m_sockfd = sock.m_sockfd;
+    return *this;
+}
 
+std::shared_ptr<TcpSocket> TcpSocket::accept() const {
+    if (!m_listening || !m_bound) throw SocketListeningException("Socket not listening or bound");
+    sockaddr_in addr{};
+    socklen_t addrlen = sizeof(sockaddr_in);
+    int sockfd = ::accept(m_sockfd, (sockaddr*)&addr, &addrlen);
+    if (sockfd < 0)
+        throw SocketAcceptException("there was an error accepting the connecton: errno: " + std::to_string(errno));
+    IPAddress ipaddr(m_addr.sin_addr.s_addr);
+    return std::make_shared<TcpSocket>(ipaddr.to_string(), htons(addr.sin_port), sockfd);
+}
+
+// private, called during accept
+TcpSocket::TcpSocket(std::string ipstr, int port, int sockfd):
+m_sockfd(sockfd),
+m_ipaddr(std::move(ipstr)),
+m_port(port),
+m_addr{},
+m_bound(false),
+m_connected(true),
+m_listening(false) {
+    m_addr.sin_addr.s_addr = m_ipaddr();
+    m_addr.sin_family = AF_INET;
+    m_addr.sin_port = htons(port);
+}

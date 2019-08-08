@@ -9,35 +9,40 @@ namespace jstd {
         public:
             SocketConnectionException() : std::runtime_error("") {}
 
-            SocketConnectionException(const std::string &msg) : std::runtime_error(msg) {}
+            explicit SocketConnectionException(const std::string &msg) : std::runtime_error(msg) {}
         };
 
         class SocketBindingException : public std::runtime_error {
         public:
             SocketBindingException() : std::runtime_error("") {}
 
-            SocketBindingException(const std::string &msg) : std::runtime_error(msg) {}
+            explicit SocketBindingException(const std::string &msg) : std::runtime_error(msg) {}
         };
 
         class SocketSendingError : public std::runtime_error {
         public:
             SocketSendingError() : std::runtime_error("") {}
 
-            SocketSendingError(const std::string &msg) : std::runtime_error(msg) {}
+            explicit SocketSendingError(const std::string &msg) : std::runtime_error(msg) {}
         };
 
         class SocketListeningException : public std::runtime_error {
         public:
             SocketListeningException() : std::runtime_error("") {}
-            SocketListeningException(const std::string& msg) : std::runtime_error(msg) {}
+            explicit SocketListeningException(const std::string& msg) : std::runtime_error(msg) {}
         };
 
         class SocketReceiveException : public std::runtime_error {
         public:
             SocketReceiveException() : std::runtime_error("") {}
-            SocketReceiveException(const std::string& msg) : std::runtime_error(msg) {}
+            explicit SocketReceiveException(const std::string& msg) : std::runtime_error(msg) {}
         };
 
+        class SocketAcceptException : public std::runtime_error {
+        public:
+            SocketAcceptException() : std::runtime_error("") {}
+            explicit SocketAcceptException(const std::string& msg) : std::runtime_error(msg) {}
+        };
     }
 }
 

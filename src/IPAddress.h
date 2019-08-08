@@ -18,6 +18,13 @@ namespace jstd {
         public:
             IPAddress();
 
+            IPAddress(const IPAddress&);
+
+            IPAddress(IPAddress&&) noexcept;
+
+            IPAddress& operator = (const IPAddress& ipaddr) noexcept;
+            IPAddress& operator = (IPAddress&& ipaddr) noexcept;
+
             explicit IPAddress(std::string ip);
 
             explicit IPAddress(uint32_t ip);
@@ -27,7 +34,7 @@ namespace jstd {
             inline std::string get_hostname() const { return m_hostname; }
 
             // return network order byte representation of ipv4 addr
-            uint32_t operator()() const;
+            inline uint32_t operator()() const { return ip_byte; }
 
             friend std::ostream &operator<<(std::ostream &os, const IPAddress &ipaddr);
         };
