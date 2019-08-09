@@ -24,6 +24,6 @@ int main(int argc, char** argv) {
     srvr.set_nonblocking(false);
     srvr.run();
     srvr.join_threads();
-    jstd::util::sleep_milli(5000);
+    jstd::util::chrono::sleep_milli(5000);
     return 0;
 }

@@ -130,11 +130,11 @@ std::shared_ptr<TcpSocket> TcpSocket::accept() const {
     if (sockfd < 0)
         throw SocketAcceptException("there was an error accepting the connecton: errno: " + std::to_string(errno));
     IPAddress ipaddr(m_addr.sin_addr.s_addr);
-    return std::make_shared<TcpSocket>(ipaddr.to_string(), htons(addr.sin_port), sockfd);
+    return std::shared_ptr<TcpSocket>(new TcpSocket(ipaddr.to_string(), htons(addr.sin_port), sockfd));
 }
 
 // private, called during accept
-TcpSocket::TcpSocket(std::string ipstr, int port, int sockfd):
+TcpSocket::TcpSocket(std::string ipstr, uint16_t port, int sockfd):
 m_sockfd(sockfd),
 m_ipaddr(std::move(ipstr)),
 m_port(port),

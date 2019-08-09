@@ -2,7 +2,7 @@
 #include "jstd_util.h"
 
 
-bool jstd::util::goto_line(std::ifstream& strm, size_t lineNo) {
+bool jstd::util::io::goto_line(std::ifstream& strm, size_t lineNo) {
 	if (!strm.is_open()) {
 		return false;
 	}

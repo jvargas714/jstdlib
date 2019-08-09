@@ -461,7 +461,7 @@ void jstd::UdpServer<QItem>::msg_recving() {
 	uint8_t buff[MAX_BUFF_SIZE];
 	std::memset(buff, 0, MAX_BUFF_SIZE);
 	ssize_t num_bytes = 0;
-	sockaddr_in from_addr = {0};
+	sockaddr_in from_addr{};
 	socklen_t addr_len = sizeof(sockaddr_in);
 	while (m_recv_active) {
 		num_bytes = recvfrom(m_svr_conn.sockfd,
@@ -488,7 +488,7 @@ void jstd::UdpServer<QItem>::msg_processing() {
 	LOG_TRACE(USVR);
 	LOG_DEBUG(USVR, "message processing thread started");
 	while (m_qproc_active) {
-		util::sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
+		util::chrono::sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
 		if (!m_msg_queue.empty()) {
 			if (process_item(std::move(m_msg_queue.front())))
 				m_stats.msg_processed_cnt++;
@@ -538,7 +538,8 @@ void jstd::UdpServer<QItem>::kill_threads() {
 
 template<typename QItem>
 void jstd::UdpServer<QItem>::init(const std::string &ip, in_port_t port) {
-	using namespace util;
+	using namespace util::chrono;
+	using namespace net;
 	LOG_TRACE(USVR);
 	m_svr_conn.ip_addr = ip;
 	m_svr_conn.sock_type = SOCK_DGRAM;

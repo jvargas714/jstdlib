@@ -18,7 +18,7 @@ BigInt<nbits>::BigInt(int64_t val) {
 
 template<size_t nbits>
 BigInt<nbits>::BigInt(std::string &val) {
-
+	
 }
 
 template<size_t nbits>

@@ -238,14 +238,14 @@ jstd::net::TcpServer<QItem>::TcpServer(const std::string &ip, const in_port_t &p
 	m_svr_conn.sa.sin_port = htons(port);
 	if (inet_aton(m_svr_conn.ip_addr.c_str(), &m_svr_conn.sa.sin_addr) == 0) {
 		LOG_ERROR(TSVR, "invalid ip address supplied errno #", errno, " descr: ", sockErrToString(errno));
-		util::sleep_milli(1000);
+		util::chrono::sleep_milli(1000);
 		std::exit((static_cast<int>(FATAL_ERR::IP_INET_FAIL)));
 	}
 	m_svr_conn.sa.sin_family = AF_INET;
 	m_svr_conn.sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_svr_conn.sockfd < 0) {
 		LOG_ERROR(TSVR, "error creating udp socket discriptor errno # ", errno, " descr: ", sockErrToString(errno));
-		util::sleep_milli(1000);
+		util::chrono::sleep_milli(1000);
 		std::exit((static_cast<int>(FATAL_ERR::SOCK_FAIL)));
 	}
 	if (!init_listen_socket()) {
@@ -453,9 +453,6 @@ void jstd::net::TcpServer<QItem>::msg_recving() {
 	LOG_DEBUG(TSVR, "message receiving thread started");
 	uint8_t buff[MAX_BUFF_SIZE];
 	std::memset(buff, 0, MAX_BUFF_SIZE);
-	ssize_t len = 0;
-	sockaddr_in from_addr = {0};
-	socklen_t addr_len = sizeof(sockaddr_in);
 	m_fd_sets.add_fd(m_svr_conn.sockfd);
 	while (m_recv_active) {
 		std::vector<int> active_sockfds = select_active_sockets();
@@ -509,7 +506,7 @@ void jstd::net::TcpServer<QItem>::msg_processing() {
 	LOG_TRACE(TSVR);
 	LOG_DEBUG(TSVR, "message processing thread started");
 	while (m_qproc_active) {
-		util::sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
+		util::chrono::sleep_milli(DEFAULT_SVR_THREAD_SLEEP);
 		if (!m_msg_queue.empty()) {
 			if ( process_item(std::move(m_msg_queue.front())) )
 				m_stats.msg_processed_cnt++;
@@ -632,7 +629,7 @@ bool jstd::net::TcpServer<QItem>::remove_client(const jstd::net::NetConnection &
 
 template<typename QItem>
 auto jstd::net::TcpServer<QItem>::lookup_client(int sockfd) {
-	struct sockaddr_in addr = {0};
+	struct sockaddr_in addr{};
 	socklen_t len = sizeof(sockaddr_in);
 	int rc = getpeername(sockfd, (struct sockaddr*)&addr, &len);
 	if (rc == SOCKET_ERROR) {

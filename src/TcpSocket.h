@@ -61,9 +61,9 @@ namespace jstd {
             friend std::ostream& operator << (std::ostream& os, const TcpSocket& sock);
             std::string to_string() const;
 
-        private:
-                // accept case where we create an already connected socket, should be called outside this class
-                TcpSocket(std::string ipstr, int port, int sockfd);
+        protected:
+            // accept case where we create an already connected socket, should be called outside this class
+            TcpSocket(std::string ipstr, uint16_t port, int sockfd);
         };
 
         std::ostream& operator << (std::ostream& os, const TcpSocket& sock);

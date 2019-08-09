@@ -9,7 +9,7 @@
 #define GEN LOG_MODULE::GENERAL
 
 
-fd_sets::fd_sets(): max_fd(0), working_set{0}, master_set{0}, timeout{0} {};
+fd_sets::fd_sets(): working_set{0}, master_set{0}, max_fd(0), timeout{} {};
 
 std::vector<int> fd_sets::get_active_fds() const {
     std::vector<int> fds;

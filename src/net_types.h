@@ -114,7 +114,7 @@ namespace jstd {
 		}
 #else // macosx
 
-		std::string sockErrToString(int32_t type) {
+		inline std::string sockErrToString(int32_t type) {
 			switch (type) {
 				case EAGAIN:
 					return "Resource temporarily unavailable";
@@ -128,6 +128,8 @@ namespace jstd {
 					return "Unknown error code: " + std::to_string(type);
 			}
 		}
+
+		inline std::string selectErrToString(int32_t err) {return std::to_string(err);}
 
 #endif
 
@@ -176,7 +178,7 @@ namespace jstd {
 			NetConnection &operator=(const NetConnection &conn) = default;
 
 			NetConnection() : ip_addr("127.0.0.1"),
-			                  sa({0}),
+			                  sa{},
 			                  sock_type(SOCK_DGRAM),
 			                  sockfd(INVALID_SOCKET),
 			                  addr_len(sizeof(sockaddr_in)) {}
@@ -202,7 +204,7 @@ namespace jstd {
 
 			NetItem(const NetItem &conn) : conn{conn.conn} { buff = conn.buff; }
 
-			~NetItem() = default;
+			virtual ~NetItem() = default;
 
 			virtual inline std::vector<uint8_t> serialize() const {
 				return buff;
